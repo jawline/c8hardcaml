@@ -1,0 +1,6 @@
+(executable
+ (name c8_bin)
+ (public_name c8_bin)
+ (libraries c8)
+ (preprocess
+  (pps ppx_jane ppx_deriving_hardcaml ppx_deriving.show ppx_deriving.ord)))

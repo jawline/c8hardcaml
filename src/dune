@@ -1,0 +1,8 @@
+(library
+ (name c8)
+ (public_name c8)
+ (libraries hardcaml core hardcaml_waveterm)
+ (inline_tests)
+ (preprocess
+  (pps ppx_jane ppx_deriving_hardcaml ppx_deriving.show ppx_deriving.ord
+    ppx_expect)))
