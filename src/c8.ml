@@ -2,6 +2,10 @@ open! Core
 open! Hardcaml
 open! Signal
 
+let clock = Signal.input "clock" 1
+let clear = Signal.input "clear" 1
+let r_sync = Reg_spec.create ~clock ~clear ()
+
 module Counter = struct
   module I = struct
     type 'a t =
@@ -44,42 +48,54 @@ module Counter = struct
     Core.print_s [%message "8 bit counter"];
     let result = test ~create:(create ~w:8) ~iterations:256 |> Bits.to_string in
     Core.print_s [%message result];
-    [%expect {| |}]
+    [%expect {|
+      "8 bit counter"
+      00000000 |}]
   ;;
 
   let%expect_test "8 bit counter 255 increments" =
     Core.print_s [%message "8 bit counter"];
     let result = test ~create:(create ~w:8) ~iterations:255 |> Bits.to_string in
     Core.print_s [%message result];
-    [%expect {| |}]
+    [%expect {|
+      "8 bit counter"
+      11111111 |}]
   ;;
 
   let%expect_test "8 bit counter 257 increments" =
     Core.print_s [%message "8 bit counter"];
     let result = test ~create:(create ~w:8) ~iterations:257 |> Bits.to_string in
     Core.print_s [%message result];
-    [%expect {| |}]
+    [%expect {|
+      "8 bit counter"
+      00000001 |}]
   ;;
 
   let%expect_test "16 bit counter 256 increments" =
     Core.print_s [%message "16 bit counter"];
     let result = test ~create:(create ~w:16) ~iterations:256 |> Bits.to_string in
     Core.print_s [%message result];
-    [%expect {| |}]
+    [%expect {|
+      "16 bit counter"
+      0000000100000000 |}]
   ;;
 
   let%expect_test "16 bit counter 255 increments" =
     Core.print_s [%message "16 bit counter"];
     let result = test ~create:(create ~w:16) ~iterations:255 |> Bits.to_string in
     Core.print_s [%message result];
-    [%expect {| |}]
+    [%expect {|
+      "16 bit counter"
+      0000000011111111 |}]
   ;;
 
   let%expect_test "16 bit counter 257 increments" =
     Core.print_s [%message "16 bit counter"];
     let result = test ~create:(create ~w:16) ~iterations:257 |> Bits.to_string in
     Core.print_s [%message result];
-    [%expect {| |}]
+    [%expect {|
+      "16 bit counter"
+      0000000100000001 |}]
   ;;
 end
 
@@ -167,6 +183,75 @@ module Fibonacci = struct
       |> Int.to_string
     in
     Core.print_s [%message result];
-    [%expect {| |}]
+    [%expect {| 89 |}]
+  ;;
+end
+
+module Registers = struct
+  type 'a t =
+    { pc : 'a
+    ; i : 'a
+    ; v : 'a list
+    }
+end
+
+module Executor = struct
+  module I = struct
+    type 'a t =
+      { clock : 'a
+      ; enable: 'a [@bits 1]
+      ; opcode: 'a [@bits 16]
+      }
+    [@@deriving sexp_of, hardcaml]
+  end
+
+  module O = struct
+    type 'a t = {
+      pc: 'a;
+      done_: 'a [@bits 1]
+    } [@@deriving sexp_of, hardcaml]
+  end
+
+  let create (i : _ I.t) =
+    let open Always in
+    let open Variable in
+    let pc = reg ~enable:vdd ~width:12 r_sync in
+    let _i = reg ~enable:vdd ~width:12 r_sync in
+    let _v = Sequence.map (Sequence.range 0 16) ~f:(fun _ -> reg ~enable:vdd ~width:8 r_sync) in
+    compile [
+    when_ (i.enable) [
+      pc <-- pc.value +:. 2;
+    ]
+    ];
+    { O.pc = pc.value; done_ = vdd }
+  ;;
+
+  let test ~create ~enable ~stop_when =
+    let module Simulator = Cyclesim.With_interface (I) (O) in
+    let sim = Simulator.create create in
+    let inputs : _ I.t = Cyclesim.inputs sim in
+    let outputs : _ O.t = Cyclesim.outputs sim in
+    inputs.enable := Bits.of_int ~width:1 enable;
+    let step () =
+      Cyclesim.cycle sim;
+      stop_when (Bits.to_int !(outputs.pc)) (Bits.to_int !(outputs.done_))
+    in
+    let rec until ~f = if f () then () else until ~f in
+    until ~f:step;
+    !(outputs.pc)
+  ;;
+
+  let%expect_test "step (disabled)" =
+    let pc = test ~enable:0 ~create ~stop_when:(fun _ _ -> true) in
+    let pc = Bits.to_int pc in
+    Core.print_s [%message (pc : int)];
+    [%expect {| (pc 0) |}]
+  ;;
+
+  let%expect_test "step (enabled)" =
+    let pc = test ~enable:1 ~create ~stop_when:(fun _ _ -> true) in
+    let pc = Bits.to_int pc in
+    Core.print_s [%message (pc : int)];
+    [%expect {| (pc 2) |}]
   ;;
 end
