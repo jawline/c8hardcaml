@@ -222,6 +222,16 @@ module Executor = struct
     [@@deriving sexp_of, hardcaml]
   end
 
+  (* This updates a register using a register index value by one hot assignment.
+   * If no register matches the target index then none are updated but that should
+   * be impossible since the index circuit is sized for the number of registers. *)
+  let onehot_assign_register registers index_circuit value =
+    let open Always in
+    proc
+      (List.mapi registers ~f:(fun i register ->
+           proc [ when_ (index_circuit ==:. i) [ register <-- value ] ]))
+  ;;
+
   let create (i : _ I.t) =
     let open Always in
     let open Variable in
@@ -234,14 +244,11 @@ module Executor = struct
     let primary_op = select executing_opcode.value 15 12 in
     let jump_location = select executing_opcode.value 11 0 in
     let target_immediate = select executing_opcode.value 7 0 in
-    let registers =
-      Sequence.map (Sequence.range 0 16) ~f:(fun _ -> reg ~enable:vdd ~width:8 r_sync)
-      |> Sequence.to_list
-    in
+    let registers = List.init 16 ~f:(fun _ -> reg ~enable:vdd ~width:8 r_sync) in
     (* A with-valid list of the target register for one-hot encoding *)
     let target_register =
       List.mapi registers ~f:(fun idx register ->
-          let target_register = select executing_opcode.value 11 8 ==:. idx in
+          let target_register = lsb (select executing_opcode.value 11 8 ==:. idx) in
           { With_valid.valid = target_register; value = register.value })
       |> onehot_select
     in
@@ -267,6 +274,11 @@ module Executor = struct
                       (target_register ==: target_immediate)
                       [ (* Skip the next instruction *) pc <-- pc.value +:. 4 ]
                       [ (* We do not skip the next instruction *) pc <-- pc.value +:. 2 ]
+                  ; ok
+                  ]
+              ; when_
+                  (primary_op ==:. 4)
+                  [ onehot_assign_register registers target_register target_immediate
                   ; ok
                   ]
               ] )
