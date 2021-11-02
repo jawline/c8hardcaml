@@ -197,7 +197,6 @@ end
 
 (* This module executes a single instruction *)
 module Executor = struct
-
   module States = struct
     type t =
       | Wait
@@ -208,18 +207,19 @@ module Executor = struct
   module I = struct
     type 'a t =
       { clock : 'a
-      ; begin_: 'a [@bits 1]
-      ; opcode: 'a [@bits 16]
+      ; begin_ : 'a [@bits 1]
+      ; opcode : 'a [@bits 16]
       }
     [@@deriving sexp_of, hardcaml]
   end
 
   module O = struct
-    type 'a t = {
-      pc: 'a
-      ; error: 'a
-      ; done_: 'a [@bits 1]
-    } [@@deriving sexp_of, hardcaml]
+    type 'a t =
+      { pc : 'a
+      ; error : 'a
+      ; done_ : 'a [@bits 1]
+      }
+    [@@deriving sexp_of, hardcaml]
   end
 
   let create (i : _ I.t) =
@@ -234,57 +234,44 @@ module Executor = struct
     let primary_op = select executing_opcode.value 15 12 in
     let jump_location = select executing_opcode.value 11 0 in
     let target_immediate = select executing_opcode.value 7 0 in
-    let registers = Sequence.map (Sequence.range 0 16) ~f:(fun _ -> reg ~enable:vdd ~width:8 r_sync) |> Sequence.to_list in
-
+    let registers =
+      Sequence.map (Sequence.range 0 16) ~f:(fun _ -> reg ~enable:vdd ~width:8 r_sync)
+      |> Sequence.to_list
+    in
     (* A with-valid list of the target register for one-hot encoding *)
-    let target_register = List.mapi registers ~f:(fun idx register ->
-        let target_register = (select executing_opcode.value 11 8) ==:. idx in
-        {
-          With_valid.valid = target_register
-        ; value = register.value
-        }) |> onehot_select
+    let target_register =
+      List.mapi registers ~f:(fun idx register ->
+          let target_register = select executing_opcode.value 11 8 ==:. idx in
+          { With_valid.valid = target_register; value = register.value })
+      |> onehot_select
     in
-    let ok = proc [
-      error <--. 0;
-      done_ <--. 1;
-      state.set_next Wait
-    ]
-    in
-    compile [
-      state.switch [
-        Wait, [
-          when_ (i.begin_ ==:. 1) [
-            state.set_next Executing;
-            executing_opcode <-- i.opcode
+    let ok = proc [ error <--. 0; done_ <--. 1; state.set_next Wait ] in
+    compile
+      [ state.switch
+          [ ( Wait
+            , [ when_
+                  (i.begin_ ==:. 1)
+                  [ state.set_next Executing; executing_opcode <-- i.opcode ]
+              ] )
+          ; ( Executing
+            , [ (* This error state will become 0 if any op is matched *)
+                error <--. 1
+              ; (* We use 0 (originally native code call) as a No-op *)
+                when_ (primary_op ==:. 0) [ pc <-- pc.value +:. 2; ok ]
+              ; (* Jump to the 12 bits at the end of the opcode *)
+                when_ (primary_op ==:. 1) [ pc <-- jump_location; ok ]
+              ; (* Skip the next instruction of register is equal to immediate *)
+                when_
+                  (primary_op ==:. 3)
+                  [ if_
+                      (target_register ==: target_immediate)
+                      [ (* Skip the next instruction *) pc <-- pc.value +:. 4 ]
+                      [ (* We do not skip the next instruction *) pc <-- pc.value +:. 2 ]
+                  ; ok
+                  ]
+              ] )
           ]
-        ];
-        Executing, [
-            (* This error state will become 0 if any op is matched *)
-            error <--. 1;
-            (* We use 0 (originally native code call) as a No-op *)
-            when_ (primary_op ==:. 0) [
-              pc <-- pc.value +:. 2;
-              ok
-            ];
-            (* Jump to the 12 bits at the end of the opcode *)
-            when_ (primary_op ==:. 1) [
-              pc <-- jump_location;
-              ok
-            ];
-            (* Skip the next instruction of register is equal to immediate *)
-            when_ (primary_op ==:. 3) [
-              if_ (target_register ==: target_immediate) [
-                (* Skip the next instruction *)
-                pc <-- pc.value +:. 4
-              ] [
-                (* We do not skip the next instruction *)
-                pc <-- pc.value +:. 2
-              ];
-              ok
-            ]
-        ]
-      ]
-    ];
+      ];
     { O.pc = pc.value; done_ = done_.value; error = error.value }
   ;;
 
@@ -295,7 +282,7 @@ module Executor = struct
     let sim = Simulator.create create in
     let inputs : _ I.t = Cyclesim.inputs sim in
     let outputs : _ O.t = Cyclesim.outputs sim in
-    inputs.begin_ := (Bits.of_int ~width:1 1);
+    inputs.begin_ := Bits.of_int ~width:1 1;
     inputs.opcode := opcode;
     let step () =
       Cyclesim.cycle sim;
