@@ -161,6 +161,7 @@ module Executor = struct
     (* A with-valid list of the target register for one-hot encoding *)
     let target_register_index = select executing_opcode.value 11 8 in
     let target_second_register_index = select executing_opcode.value 7 4 in
+    let final_nibble = select executing_opcode.value 3 0 in
     let target_register ~register_index =
       List.mapi registers ~f:(fun idx register ->
           let target_register = lsb (register_index ==:. idx) in
@@ -226,6 +227,114 @@ module Executor = struct
                   ; pc <-- pc.value +:. 2
                   ; ok
                   ]
+              ; (* Accumulate an immediate into the register addressed to by the second nibble of the opcode *)
+                when_
+                  (primary_op ==:. 7)
+                  [ onehot_assign_register
+                      registers
+                      target_register_index
+                      (first_target_register +: target_immediate)
+                  ; pc <-- pc.value +:. 2
+                  ; ok
+                  ]
+              ; when_
+                  (primary_op ==:. 8)
+                  [ (* Assign a register to another register *)
+                    when_
+                      (final_nibble ==:. 0)
+                      [ onehot_assign_register
+                          registers
+                          target_register_index
+                          second_target_register
+                      ; pc <-- pc.value +:. 2
+                      ; ok
+                      ]
+                  ; (* Or a register with another register *)
+                    when_
+                      (final_nibble ==:. 1)
+                      [ onehot_assign_register
+                          registers
+                          target_register_index
+                          (first_target_register |: second_target_register)
+                      ; pc <-- pc.value +:. 2
+                      ; ok
+                      ]
+                  ; (* And a register with another register *)
+                    when_
+                      (final_nibble ==:. 2)
+                      [ onehot_assign_register
+                          registers
+                          target_register_index
+                          (first_target_register &: second_target_register)
+                      ; pc <-- pc.value +:. 2
+                      ; ok
+                      ]
+                  ; (* Xor a register with another register *)
+                    when_
+                      (final_nibble ==:. 3)
+                      [ onehot_assign_register
+                          registers
+                          target_register_index
+                          (first_target_register ^: second_target_register)
+                      ; pc <-- pc.value +:. 2
+                      ; ok
+                      ]
+                  ; (* Add a register to another *)
+                    (* TODO: CARRY *)
+                    when_
+                      (final_nibble ==:. 4)
+                      [ onehot_assign_register
+                          registers
+                          target_register_index
+                          (first_target_register +: second_target_register)
+                      ; pc <-- pc.value +:. 2
+                      ; ok
+                      ]
+                  ; (* Sub a register to another *)
+                    (* TODO: CARRY *)
+                    when_
+                      (final_nibble ==:. 5)
+                      [ onehot_assign_register
+                          registers
+                          target_register_index
+                          (first_target_register -: second_target_register)
+                      ; pc <-- pc.value +:. 2
+                      ; ok
+                      ]
+                  ; (* Shr register by 1 *)
+                    (* TODO: CARRY *)
+                    when_
+                      (final_nibble ==:. 6)
+                      [ onehot_assign_register
+                          registers
+                          target_register_index
+                          (srl first_target_register 1)
+                      ; pc <-- pc.value +:. 2
+                      ; ok
+                      ]
+                  ; (* Same as sub but the operand order is reversed  *)
+                    (* TODO: CARRY *)
+                    when_
+                      (final_nibble ==:. 7)
+                      [ onehot_assign_register
+                          registers
+                          target_register_index
+                          (second_target_register -: first_target_register)
+                      ; pc <-- pc.value +:. 2
+                      ; ok
+                      ]
+                  ; (* Sll register by 1 *)
+                    (* TODO: CARRY *)
+                    when_
+                      (final_nibble ==:. 8)
+                      [ onehot_assign_register
+                          registers
+                          target_register_index
+                          (sll first_target_register 1)
+                      ; pc <-- pc.value +:. 2
+                      ; ok
+                      ]
+                  ]
               ] )
           ]
       ];
@@ -236,19 +345,26 @@ module Executor = struct
     }
   ;;
 
-  let standard_stop error done_ = error <> 0 || done_ <> 0
-
   module Test = struct
+    let standard_stop error done_ = error <> 0 || done_ <> 0
     let assign_v0_1 = Bits.of_string "16'b0110000000000001"
+    let assign_v0_2 = Bits.of_string "16'b0110000000000010"
+    let assign_v0_3 = Bits.of_string "16'b0110000000000011"
+    let assign_v1_1 = Bits.of_string "16'b0110000100000001"
     let assign_v1_2 = Bits.of_string "16'b0110000100000010"
     let assign_v2_3 = Bits.of_string "16'b0110001000000011"
+    let add_v0_5 = Bits.of_string "16'b0111000000000101"
     let assign_v6_255 = Bits.of_string "16'b0110011011111111"
-    let assign_v0_five = Bits.of_string "16'b0110000000000111"
-    let assign_v0_four = Bits.of_string "16'b0110000000000110"
-    let assign_v1_five = Bits.of_string "16'b0110000100000111"
-    let skip_if_v0_five = Bits.of_string "16'b0011000000000111"
-    let skip_if_v0_not_five = Bits.of_string "16'b0100000000000111"
+    let assign_v0_five = Bits.of_string "16'b0110_0000_00000101"
+    let assign_v0_four = Bits.of_string "16'b0110_0000_00000100"
+    let assign_v1_five = Bits.of_string "16'b0110_0001_00000101"
+    let skip_if_v0_five = Bits.of_string "16'b0011_0000_00000101"
+    let skip_if_v0_not_five = Bits.of_string "16'b0100_0000_00000101"
     let skip_if_v0_eq_v1 = Bits.of_string "16'b0101_0000_0001_0000"
+    let assign_v0_v1 = Bits.of_string "16'b1000_0000_0001_0000"
+    let or_v0_v1 = Bits.of_string "16'b1000_0000_0001_0001"
+    let and_v0_v1 = Bits.of_string "16'b1000_0000_0001_0010"
+    let xor_v0_v1 = Bits.of_string "16'b1000_0000_0001_0011"
 
     let test ~create ~opcodes ~stop_when =
       let module Simulator = Cyclesim.With_interface (I) (O) in
@@ -400,7 +516,7 @@ module Executor = struct
         {|
       ((pc 6) (error 0))
       (as_strings
-       (V0:00000111 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
+       (V0:00000101 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
         V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
         V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
     ;;
@@ -416,7 +532,7 @@ module Executor = struct
         {|
       ((pc 4) (error 0))
       (as_strings
-       (V0:00000110 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
+       (V0:00000100 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
         V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
         V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
     ;;
@@ -435,7 +551,7 @@ module Executor = struct
         {|
       ((pc 4) (error 0))
       (as_strings
-       (V0:00000111 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
+       (V0:00000101 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
         V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
         V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
     ;;
@@ -454,13 +570,12 @@ module Executor = struct
         {|
       ((pc 8) (error 0))
       (as_strings
-       (V0:00000111 V1:00000111 V2:00000000 V3:00000000 V4:00000000 V5:00000000
+       (V0:00000101 V1:00000101 V2:00000000 V3:00000000 V4:00000000 V5:00000000
         V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
         V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
     ;;
 
     let%expect_test "test skip if v0 = v1 when v0 <> v1" =
-      (* TODO: Broken *)
       let pc, error, registers =
         test
           ~opcodes:[ assign_v0_four; assign_v1_five; skip_if_v0_eq_v1 ]
@@ -474,7 +589,112 @@ module Executor = struct
         {|
       ((pc 6) (error 0))
       (as_strings
-       (V0:00000110 V1:00000111 V2:00000000 V3:00000000 V4:00000000 V5:00000000
+       (V0:00000100 V1:00000101 V2:00000000 V3:00000000 V4:00000000 V5:00000000
+        V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
+        V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
+    ;;
+
+    let%expect_test "add 5 to v0 twices" =
+      let pc, error, registers =
+        test ~opcodes:[ add_v0_5; add_v0_5 ] ~create ~stop_when:standard_stop
+      in
+      let pc, error = Bits.to_int pc, Bits.to_int error in
+      Core.print_s [%message (pc : int) (error : int)];
+      print_registers ~registers;
+      [%expect
+        {|
+      ((pc 4) (error 0))
+      (as_strings
+       (V0:00001010 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
+        V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
+        V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
+    ;;
+
+    let%expect_test "assign 4 to v0 then add 5 to v0" =
+      let pc, error, registers =
+        test ~opcodes:[ assign_v0_four; add_v0_5 ] ~create ~stop_when:standard_stop
+      in
+      let pc, error = Bits.to_int pc, Bits.to_int error in
+      Core.print_s [%message (pc : int) (error : int)];
+      print_registers ~registers;
+      [%expect
+        {|
+      ((pc 4) (error 0))
+      (as_strings
+       (V0:00001001 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
+        V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
+        V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
+    ;;
+
+    let%expect_test "assign 2 to v1 then assign v0 to v1" =
+      let pc, error, registers =
+        test ~opcodes:[ assign_v1_2; assign_v0_v1 ] ~create ~stop_when:standard_stop
+      in
+      let pc, error = Bits.to_int pc, Bits.to_int error in
+      Core.print_s [%message (pc : int) (error : int)];
+      print_registers ~registers;
+      [%expect
+        {|
+      ((pc 4) (error 0))
+      (as_strings
+       (V0:00000010 V1:00000010 V2:00000000 V3:00000000 V4:00000000 V5:00000000
+        V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
+        V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
+    ;;
+
+    let%expect_test "assign 2 to v1 then assign 1 to v0 then or them" =
+      let pc, error, registers =
+        test
+          ~opcodes:[ assign_v1_1; assign_v0_2; or_v0_v1 ]
+          ~create
+          ~stop_when:standard_stop
+      in
+      let pc, error = Bits.to_int pc, Bits.to_int error in
+      Core.print_s [%message (pc : int) (error : int)];
+      print_registers ~registers;
+      [%expect
+        {|
+      ((pc 6) (error 0))
+      (as_strings
+       (V0:00000011 V1:00000001 V2:00000000 V3:00000000 V4:00000000 V5:00000000
+        V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
+        V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
+    ;;
+
+    let%expect_test "assign 2 to v1 then assign 3 to v0 then and them" =
+      let pc, error, registers =
+        test
+          ~opcodes:[ assign_v1_1; assign_v0_3; and_v0_v1 ]
+          ~create
+          ~stop_when:standard_stop
+      in
+      let pc, error = Bits.to_int pc, Bits.to_int error in
+      Core.print_s [%message (pc : int) (error : int)];
+      print_registers ~registers;
+      [%expect
+        {|
+      ((pc 6) (error 0))
+      (as_strings
+       (V0:00000001 V1:00000001 V2:00000000 V3:00000000 V4:00000000 V5:00000000
+        V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
+        V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
+    ;;
+
+    let%expect_test "assign 2 to v1 then assign 3 to v0 then xor them" =
+      let pc, error, registers =
+        test
+          ~opcodes:[ assign_v1_1; assign_v0_3; xor_v0_v1 ]
+          ~create
+          ~stop_when:standard_stop
+      in
+      let pc, error = Bits.to_int pc, Bits.to_int error in
+      Core.print_s [%message (pc : int) (error : int)];
+      print_registers ~registers;
+      [%expect
+        {|
+      ((pc 6) (error 0))
+      (as_strings
+       (V0:00000010 V1:00000001 V2:00000000 V3:00000000 V4:00000000 V5:00000000
         V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
         V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
     ;;
