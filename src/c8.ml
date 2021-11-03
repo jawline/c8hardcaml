@@ -217,6 +217,7 @@ module Executor = struct
     type 'a t =
       { pc : 'a
       ; error : 'a
+      ; registers : 'a list [@length 16] [@bits 8]
       ; done_ : 'a [@bits 1]
       }
     [@@deriving sexp_of, hardcaml]
@@ -276,15 +277,16 @@ module Executor = struct
                       [ (* We do not skip the next instruction *) pc <-- pc.value +:. 2 ]
                   ; ok
                   ]
-              ; when_
-                  (primary_op ==:. 4)
+              ; (* Assigns the register pointer to by the second nibble of the opcode to the value stored in the final byte of the opcode *)
+              when_
+                  (primary_op ==:. 6)
                   [ onehot_assign_register registers target_register target_immediate
                   ; ok
                   ]
               ] )
           ]
       ];
-    { O.pc = pc.value; done_ = done_.value; error = error.value }
+    { O.pc = pc.value; done_ = done_.value; error = error.value; registers = List.map registers ~f:(fun register -> register.value)}
   ;;
 
   let standard_stop error done_ = error <> 0 || done_ <> 0
@@ -302,18 +304,25 @@ module Executor = struct
     in
     let rec until ~f = if f () then () else until ~f in
     until ~f:step;
-    !(outputs.pc), !(outputs.error)
+    !(outputs.pc), !(outputs.error), (List.map outputs.registers ~f:(fun register -> !(register)))
+  ;;
+
+  let print_registers ~registers =
+    let as_strings = List.map registers ~f:(fun register ->
+      Bits.to_string register
+      ) in
+    Core.print_s [%message (as_strings : string list)]
   ;;
 
   let%expect_test "step (disabled)" =
-    let pc, _ = test ~opcode:(Bits.of_int ~width:16 0) ~create ~stop_when:standard_stop in
+    let pc, _, _ = test ~opcode:(Bits.of_int ~width:16 0) ~create ~stop_when:standard_stop in
     let pc = Bits.to_int pc in
     Core.print_s [%message (pc : int)];
     [%expect {| (pc 0) |}]
   ;;
 
   let%expect_test "step (enabled)" =
-    let pc, _ = test ~opcode:(Bits.of_int ~width:16 0) ~create ~stop_when:standard_stop in
+    let pc, _, _ = test ~opcode:(Bits.of_int ~width:16 0) ~create ~stop_when:standard_stop in
     let pc = Bits.to_int pc in
     Core.print_s [%message (pc : int)];
     [%expect {| (pc 2) |}]
@@ -321,7 +330,7 @@ module Executor = struct
 
   let%expect_test "step (jump) to 1024" =
     let jump_to_addr = Bits.of_string "16'b0001010000000000" in
-    let pc, error = test ~opcode:jump_to_addr ~create ~stop_when:standard_stop in
+    let pc, error, _= test ~opcode:jump_to_addr ~create ~stop_when:standard_stop in
     let pc, error = Bits.to_int pc, Bits.to_int error in
     Core.print_s [%message (pc : int) (error : int)];
     [%expect {| (pc 2) |}]
@@ -329,7 +338,7 @@ module Executor = struct
 
   let%expect_test "step (jump) to 512" =
     let jump_to_addr = Bits.of_string "16'b0001001000000000" in
-    let pc, error = test ~opcode:jump_to_addr ~create ~stop_when:standard_stop in
+    let pc, error, _ = test ~opcode:jump_to_addr ~create ~stop_when:standard_stop in
     let pc, error = Bits.to_int pc, Bits.to_int error in
     Core.print_s [%message (pc : int) (error : int)];
     [%expect {| (pc 2) |}]
@@ -337,9 +346,27 @@ module Executor = struct
 
   let%expect_test "step (jump) to 1" =
     let jump_to_addr = Bits.of_string "16'b0001000000000001" in
-    let pc, error = test ~opcode:jump_to_addr ~create ~stop_when:standard_stop in
+    let pc, error, _ = test ~opcode:jump_to_addr ~create ~stop_when:standard_stop in
     let pc, error = Bits.to_int pc, Bits.to_int error in
     Core.print_s [%message (pc : int) (error : int)];
+    [%expect {| (pc 2) |}]
+  ;;
+
+  let%expect_test "assign V0 to 1" =
+    let jump_to_addr = Bits.of_string "16'b0110000000000001" in
+    let pc, error, registers = test ~opcode:jump_to_addr ~create ~stop_when:standard_stop in
+    let pc, error = Bits.to_int pc, Bits.to_int error in
+    Core.print_s [%message (pc : int) (error : int)];
+    print_registers ~registers;
+    [%expect {| (pc 2) |}]
+
+  let%expect_test "assign V1 to 2" =
+    (* TODO: This instruction is broken here *)
+    let jump_to_addr = Bits.of_string "16'b0110000100000010" in
+    let pc, error, registers = test ~opcode:jump_to_addr ~create ~stop_when:standard_stop in
+    let pc, error = Bits.to_int pc, Bits.to_int error in
+    Core.print_s [%message (pc : int) (error : int)];
+    print_registers ~registers;
     [%expect {| (pc 2) |}]
   ;;
 end
