@@ -209,7 +209,7 @@ module Executor = struct
                   ]
               ; (* Skip the next instruction of register is equal to the second target register *)
                 when_
-                  (primary_op ==:. 3)
+                  (primary_op ==:. 5)
                   [ if_
                       (first_target_register ==: second_target_register)
                       [ (* Skip the next instruction *) pc <-- pc.value +:. 4 ]
@@ -248,7 +248,7 @@ module Executor = struct
     let assign_v1_five = Bits.of_string "16'b0110000100000111"
     let skip_if_v0_five = Bits.of_string "16'b0011000000000111"
     let skip_if_v0_not_five = Bits.of_string "16'b0100000000000111"
-    let skip_if_v0_eq_v1 = Bits.of_string "16'b0100_0000_0001_0000"
+    let skip_if_v0_eq_v1 = Bits.of_string "16'b0101_0000_0001_0000"
 
     let test ~create ~opcodes ~stop_when =
       let module Simulator = Cyclesim.With_interface (I) (O) in
@@ -433,7 +433,7 @@ module Executor = struct
       print_registers ~registers;
       [%expect
         {|
-      ((pc 6) (error 0))
+      ((pc 4) (error 0))
       (as_strings
        (V0:00000111 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
         V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
@@ -452,9 +452,9 @@ module Executor = struct
       print_registers ~registers;
       [%expect
         {|
-      ((pc 6) (error 0))
+      ((pc 8) (error 0))
       (as_strings
-       (V0:00000111 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
+       (V0:00000111 V1:00000111 V2:00000000 V3:00000000 V4:00000000 V5:00000000
         V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
         V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
     ;;
@@ -474,7 +474,7 @@ module Executor = struct
         {|
       ((pc 6) (error 0))
       (as_strings
-       (V0:00000111 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
+       (V0:00000110 V1:00000111 V2:00000000 V3:00000000 V4:00000000 V5:00000000
         V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
         V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
     ;;
