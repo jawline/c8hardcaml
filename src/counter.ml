@@ -98,4 +98,3 @@ module Counter = struct
       0000000100000001 |}]
   ;;
 end
-
