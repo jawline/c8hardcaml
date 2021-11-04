@@ -18,10 +18,10 @@ module Executor = struct
   module I = struct
     type 'a t =
       { clock : 'a
-      ; pc : 'a [@bits 12]
-      ; i : 'a [@bits 12]
-      ; sp : 'a [@bits 32]
-      ; registers : 'a list [@length 16] [@bits 8]
+      ; input_pc : 'a [@bits 12]
+      ; input_i : 'a [@bits 12]
+      ; input_sp : 'a [@bits 32]
+      ; input_registers : 'a list [@length 16] [@bits 8]
       ; begin_ : 'a [@bits 1]
       ; opcode : 'a [@bits 16]
       }
@@ -86,6 +86,7 @@ module Executor = struct
       ; (* The first nibble of the executing opcode *)
         primary_op : Signal.t
       ; registers : Always.Variable.t list
+      ; register_zero : Always.Variable.t
       ; flag_register : Always.Variable.t
       ; state : States.t Always.State_machine.t
       ; (* If this opcode has a 12-bit pointer this signal will be equal to it *)
@@ -113,6 +114,7 @@ module Executor = struct
       let executing_opcode = reg ~enable:vdd ~width:16 r_sync in
       let primary_op = select executing_opcode.value 15 12 in
       let registers = List.init 16 ~f:(fun _ -> reg ~enable:vdd ~width:8 r_sync) in
+      let register_zero = List.nth_exn registers 0x0 in
       let flag_register = List.nth_exn registers 0xF in
       let opcode_address = select executing_opcode.value 11 0 in
       let opcode_immediate = select executing_opcode.value 7 0 in
@@ -131,6 +133,7 @@ module Executor = struct
       ; executing_opcode
       ; primary_op
       ; registers
+      ; register_zero
       ; flag_register
       ; state
       ; opcode_address
@@ -253,9 +256,9 @@ module Executor = struct
     proc [ pc <-- pc.value +:. 2; ok ]
   ;;
 
-  let jump ok { ExecutorInternal.pc; opcode_address; _ } =
+  let assign_address ?(mutate = Fn.id) register ok { ExecutorInternal.opcode_address; _ } =
     let open Always in
-    proc [ pc <-- opcode_address; ok ]
+    proc [ register <-- mutate opcode_address; ok ]
   ;;
 
   let skip_imm_inv
@@ -318,12 +321,12 @@ module Executor = struct
                   (i.begin_ ==:. 1)
                   [ state.set_next Executing
                   ; internal.executing_opcode <-- i.opcode
-                  ; internal.pc <-- i.pc
-                  ; internal.i <-- i.i
-                  ; internal.sp <-- i.sp
+                  ; internal.pc <-- i.input_pc
+                  ; internal.i <-- i.input_i
+                  ; internal.sp <-- i.input_sp
                   ; proc
                       (List.map
-                         (List.zip_exn internal.registers i.registers)
+                         (List.zip_exn internal.registers i.input_registers)
                          ~f:(fun (register, input) -> register <-- input))
                   ; done_ <--. 0
                   ]
@@ -334,7 +337,9 @@ module Executor = struct
               ; (* We use 0 (originally native code call) as a No-op *)
                 when_ (internal.primary_op ==:. 0) [ no_op ok internal ]
               ; (* Jump to the 12 bits at the end of the opcode *)
-                when_ (internal.primary_op ==:. 1) [ jump ok internal ]
+                when_
+                  (internal.primary_op ==:. 1)
+                  [ assign_address internal.pc ok internal ]
               ; (* Skip the next instruction of register is equal to immediate *)
                 when_ (internal.primary_op ==:. 3) [ skip_imm_inv ( ==: ) ok internal ]
               ; (* Skip the next instruction of register is not equal to immediate (dual of the opcode above) *)
@@ -353,6 +358,19 @@ module Executor = struct
                 when_ (internal.primary_op ==:. 8) [ register_instructions ok internal ]
               ; (* Skip the next instruction of register is not equal to the second target register *)
                 when_ (internal.primary_op ==:. 9) [ skip_reg_inv ( <>: ) ok internal ]
+              ; (* Set the i register to the opcode address *)
+                when_
+                  (internal.primary_op ==:. 10)
+                  [ assign_address internal.i ok internal ]
+              ; (* Set the pc register to a fixed address + V0 *)
+                when_
+                  (internal.primary_op ==:. 11)
+                  [ assign_address
+                      ~mutate:(fun pc -> uresize internal.register_zero.value 12 +: pc)
+                      internal.pc
+                      ok
+                      internal
+                  ]
               ] )
           ]
       ];
@@ -386,6 +404,15 @@ module Executor = struct
     let and_v0_v1 = Bits.of_string "16'b1000_0000_0001_0010"
     let xor_v0_v1 = Bits.of_string "16'b1000_0000_0001_0011"
 
+    let copy_outputs_to_inputs (inputs : _ I.t) (outputs : _ O.t) =
+      inputs.input_pc := !(outputs.pc);
+      inputs.input_i := !(outputs.i);
+      inputs.input_sp := !(outputs.sp);
+      List.iter
+        ~f:(fun (a, b) -> a := !b)
+        (List.zip_exn inputs.input_registers outputs.registers)
+    ;;
+
     let test ~create ~opcodes ~stop_when =
       let module Simulator = Cyclesim.With_interface (I) (O) in
       let sim = Simulator.create create in
@@ -399,7 +426,8 @@ module Executor = struct
             stop_when (Bits.to_int !(outputs.error)) (Bits.to_int !(outputs.done_))
           in
           let rec until ~f = if f () then () else until ~f in
-          until ~f:step);
+          until ~f:step;
+          copy_outputs_to_inputs inputs outputs);
       ( !(outputs.pc)
       , !(outputs.error)
       , List.map outputs.registers ~f:(fun register -> !register) )
