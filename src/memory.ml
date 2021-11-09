@@ -10,16 +10,15 @@ module I = struct
   type 'a t =
     { clock : 'a
     ; address : 'a [@bits 64]
-    ; write: 'a [@bits 1]
+    ; write : 'a [@bits 1]
     }
   [@@deriving sexp_of, hardcaml]
 end
 
 module O = struct
   type 'a t =
-    {
-     address: 'a [@bits 64]
-   ; value: 'a [@bits 16]
+    { address : 'a [@bits 64]
+    ; value : 'a [@bits 16]
     }
   [@@deriving sexp_of, hardcaml]
 end
