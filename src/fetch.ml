@@ -7,7 +7,6 @@ let clear = Signal.input "clear" 1
 let r_sync = Reg_spec.create ~clock ~clear ()
 
 (* This module executes a single instruction *)
-module Executor = struct
   module States = struct
     type t =
       | Wait
@@ -747,4 +746,3 @@ module Executor = struct
         V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
     ;;
   end
-end
