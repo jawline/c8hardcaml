@@ -1,10 +1,7 @@
 open! Core
 open! Hardcaml
 open! Signal
-
-let clock = Signal.input "clock" 1
-let clear = Signal.input "clear" 1
-let r_sync = Reg_spec.create ~clock ~clear ()
+open Global
 
 (* This module executes a single instruction *)
 module States = struct
