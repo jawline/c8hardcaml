@@ -25,10 +25,10 @@ end
 
 module O = struct
   type 'a t =
-    { pc : 'a
-    ; i : 'a
-    ; sp : 'a
-    ; error : 'a
+          { pc : 'a [@bits 12]
+    ; i : 'a [@bits 12]
+    ; sp : 'a [@bits 32]
+    ; error : 'a [@bits 8]
     ; registers : 'a list [@length 16] [@bits 8]
     ; done_ : 'a [@bits 1]
     }
@@ -308,7 +308,8 @@ let create (i : _ I.t) =
   compile
     [ state.switch
         [ ( Wait
-          , [ when_
+          , [ done_ <--. 0 ;
+            when_
                 (i.begin_ ==:. 1)
                 [ state.set_next Executing
                 ; internal.executing_opcode <-- i.opcode
@@ -319,7 +320,6 @@ let create (i : _ I.t) =
                     (List.map
                        (List.zip_exn internal.registers i.input_registers)
                        ~f:(fun (register, input) -> register <-- input))
-                ; done_ <--. 0
                 ]
             ] )
         ; ( Executing
@@ -352,7 +352,7 @@ let create (i : _ I.t) =
             ; (* Set the i register to the opcode address *)
               when_
                 (internal.primary_op ==:. 10)
-                [ assign_address internal.i ok internal ]
+                [ assign_address internal.i ok internal ; internal.pc <-- internal.pc.value +:. 2 ]
             ; (* Set the pc register to a fixed address + V0 *)
               when_
                 (internal.primary_op ==:. 11)

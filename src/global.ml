@@ -17,6 +17,7 @@ let machine_ram ~write_enable ~write_address ~write_data ~read_address =
       ~size:4096
       ~write_ports:[| { write_enable; write_address; write_data; write_clock = clock } |]
       ~read_ports:[| { read_enable = vdd; read_address; read_clock = clock } |]
+      ()
   in
   Array.get read_ports 0
 ;;

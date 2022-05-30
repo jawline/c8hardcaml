@@ -6,6 +6,8 @@ depends: [
   "dune" {>= "2.0"}
   "hardcaml"
   "core"
+  "async"
+  "async_unix"
 ]
 build: [
   ["dune" "subst"] {pinned}
