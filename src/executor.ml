@@ -13,8 +13,7 @@ end
 
 module I = struct
   type 'a t =
-    { clock : 'a
-    ; input_pc : 'a [@bits 12]
+    { input_pc : 'a [@bits 12]
     ; input_i : 'a [@bits 12]
     ; input_sp : 'a [@bits 32]
     ; input_registers : 'a list [@length 16] [@bits 8]

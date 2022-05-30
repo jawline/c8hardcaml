@@ -4,8 +4,10 @@ open! Signal
 
 let word_size = 16
 let byte_size = 8
+
 let clock = Signal.input "clock" 1
 let clear = Signal.input "clear" 1
+
 let r_sync = Reg_spec.create ~clock ~clear ()
 
 let machine_ram ~write_enable ~write_address ~write_data ~read_address =
