@@ -1,51 +1,8 @@
 open Core
 open Async
 open Hardcaml
-open C8.Global
 open C8.Cpu_core
-
-let pp v = Bits.to_int !v |> Int.to_string
-let ppb v = Bits.to_string !v
-
-let sim_set_write_ram sim (i : _ I.t) (o : _ O.t) addr data =
-  i.program := Bits.of_int ~width:(Sized.size `Bit) 1;
-  i.program_write_enable := Bits.of_int ~width:(Sized.size `Bit) 1;
-  i.program_address := Bits.of_int ~width:(Sized.size `Address) addr;
-  i.program_data := Bits.of_int ~width:(Sized.size `Byte) data;
-  Cyclesim.cycle sim;
-  Cyclesim.cycle sim;
-  Cyclesim.cycle sim;
-  Cyclesim.cycle sim;
-  print_s [%message "" ~last_read:(pp o.program_read_data)]
-;;
-
-let _sim_read_addr sim (i : _ I.t) (o : _ O.t) addr =
-  i.program := Bits.of_int ~width:(Sized.size `Bit) 1;
-  i.program_write_enable := Bits.of_int ~width:(Sized.size `Bit) 0;
-  i.program_address := Bits.of_int ~width:(Sized.size `Address) addr;
-  Cyclesim.cycle sim;
-  Cyclesim.cycle sim;
-  Cyclesim.cycle sim;
-  Cyclesim.cycle sim;
-  print_s [%message "" ~last_read:(pp o.program_read_data)]
-;;
-
-let sim_cycle_not_programming sim (i : _ I.t) (o : _ O.t) =
-  i.program := Bits.of_int ~width:1 0;
-  Cyclesim.cycle sim;
-  print_s
-    [%message
-      ""
-        ~op:(ppb o.op)
-        ~program_read_data:(pp o.program_read_data)
-        ~program_read_address:(pp o.program_read_address)
-        ~in_execute:(pp o.in_execute)
-        ~executor_pc:(pp o.registers.pc)
-        ~executor_i:(pp o.registers.i)
-        ~executor_done:(pp o.registers.done_)
-        ~executor_error:(pp o.registers.error)
-        ~executor_registers:(List.map o.registers.registers ~f:pp : string list)]
-;;
+open Helper
 
 let test ~rom_file ~create =
   let module Simulator = Cyclesim.With_interface (I) (O) in
@@ -53,8 +10,7 @@ let test ~rom_file ~create =
   let inputs : _ I.t = Cyclesim.inputs sim in
   let outputs : _ O.t = Cyclesim.outputs sim in
   (* Write the test rom to main memory *)
-  String.iteri rom_file ~f:(fun i c ->
-      sim_set_write_ram sim inputs outputs i (Char.to_int c));
+  sim_program_rom sim inputs ~rom:(String.to_list rom_file |> List.map ~f:Char.to_int);
   (* Simulate the program we just wrote running for 100 cycles *)
   Sequence.range 0 100
   |> Sequence.iter ~f:(fun _ -> sim_cycle_not_programming sim inputs outputs);
@@ -68,44 +24,6 @@ let%expect_test "program memory" =
   test ~rom_file ~create;
   [%expect
     {|
-    (last_read 96)
-    (last_read 0)
-    (last_read 97)
-    (last_read 0)
-    (last_read 162)
-    (last_read 34)
-    (last_read 194)
-    (last_read 1)
-    (last_read 50)
-    (last_read 1)
-    (last_read 162)
-    (last_read 30)
-    (last_read 208)
-    (last_read 20)
-    (last_read 112)
-    (last_read 4)
-    (last_read 48)
-    (last_read 64)
-    (last_read 18)
-    (last_read 4)
-    (last_read 96)
-    (last_read 0)
-    (last_read 113)
-    (last_read 4)
-    (last_read 49)
-    (last_read 32)
-    (last_read 18)
-    (last_read 4)
-    (last_read 18)
-    (last_read 28)
-    (last_read 128)
-    (last_read 64)
-    (last_read 32)
-    (last_read 16)
-    (last_read 32)
-    (last_read 64)
-    (last_read 128)
-    (last_read 16)
     ((op 0000000000000000) (program_read_data 96) (program_read_address 0)
      (in_execute 0) (executor_pc 0) (executor_i 0) (executor_done 0)
      (executor_error 0) (executor_registers (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))
