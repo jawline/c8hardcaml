@@ -6,6 +6,8 @@ An in-progress implementation of the CHIP-8 virtual machine in Hardcaml with the
 
 - CPU Fetch & execute cycle
 - Non-memory opcodes except for the random opcode
+- XOR-shift based random number generator
+- Test harness for a real ROM
 
 #### To Do
 
