@@ -66,7 +66,8 @@ let%expect_test "program memory" =
     Reader.file_contents "../test_rom/Maze (alt) [David Winter, 199x].ch8"
   in
   test ~rom_file ~create;
-  [%expect{|
+  [%expect
+    {|
     (last_read 96)
     (last_read 0)
     (last_read 97)

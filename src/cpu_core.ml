@@ -326,7 +326,7 @@ let fetch
   [ done_ <--. 0
   ; when_ (fetch_cycle.value ==:. 0) [ ram.read_address <-- pc.value ]
   ; when_ (fetch_cycle.value ==:. 1) [ op_first <-- ram.read_data ]
-  ; when_ (fetch_cycle.value ==:. 2) [ ram.read_address <-- (pc.value +:. 1) ]
+  ; when_ (fetch_cycle.value ==:. 2) [ ram.read_address <-- pc.value +:. 1 ]
   ; when_
       (fetch_cycle.value ==:. 3)
       [ op_second <-- ram.read_data; executing_opcode <-- op; state.set_next Execute ]
@@ -349,6 +349,77 @@ let startup
   ]
 ;;
 
+let programming_mode ~(internal : ExecutorInternal.t) ~(ram : Main_memory.t) (i : _ I.t) =
+  let open Always in
+  [ ram.read_address <-- i.program_address
+  ; ram.write_enable <-- i.program_write_enable
+  ; ram.write_address <-- i.program_address
+  ; ram.write_data <-- i.program_data
+  ; internal.pc <-- i.program_pc
+  ]
+;;
+
+let execute_instruction
+    ~in_execute
+    ~error
+    ~done_
+    ~(state : States.t Always.State_machine.t)
+    ~(internal : ExecutorInternal.t)
+    ~ram:_
+    ~(random_state : _ Xor_shift.O.t)
+  =
+  let open Always in
+  let ok = proc [ error <--. 0; done_ <--. 1; state.set_next Fetch_op ] in
+  [ in_execute <--. 1
+  ; (* This error state will become 0 if any op is matched *)
+    error <--. 1
+  ; (* We use 0 (originally native code call) as a No-op *)
+    when_ (internal.primary_op ==:. 0) [ no_op ok internal ]
+  ; (* Jump to the 12 bits at the end of the opcode *)
+    when_ (internal.primary_op ==:. 1) [ assign_address internal.pc ok internal ]
+  ; (* Skip the next instruction of register is equal to immediate *)
+    when_ (internal.primary_op ==:. 3) [ skip_imm_inv ( ==: ) ok internal ]
+  ; (* Skip the next instruction of register is not equal to immediate (dual of the opcode above) *)
+    when_ (internal.primary_op ==:. 4) [ skip_imm_inv ( <>: ) ok internal ]
+  ; (* Skip the next instruction of register is equal to the second target register *)
+    when_ (internal.primary_op ==:. 5) [ skip_reg_inv ( ==: ) ok internal ]
+  ; (* Assigns the register pointed to by the second nibble of the opcode to the value stored in the final byte of the opcode *)
+    when_
+      (internal.primary_op ==:. 6)
+      [ combine_register_imm ~f:(fun _ x -> x) ok internal ]
+  ; (* Accumulate an immediate into the register addressed to by the second nibble of the opcode *)
+    when_
+      (internal.primary_op ==:. 7)
+      [ combine_register_imm ~f:(fun x y -> x +: y) ok internal ]
+  ; (* 8__x opcodes are register operations *)
+    when_ (internal.primary_op ==:. 8) [ register_instructions ok internal ]
+  ; (* Skip the next instruction of register is not equal to the second target register *)
+    when_ (internal.primary_op ==:. 9) [ skip_reg_inv ( <>: ) ok internal ]
+  ; (* Set the i register to the opcode address *)
+    when_
+      (internal.primary_op ==:. 10)
+      [ assign_address internal.i ok internal; internal.pc <-- internal.pc.value +:. 2 ]
+  ; (* Set the pc register to a fixed address + V0 *)
+    when_
+      (internal.primary_op ==:. 11)
+      [ assign_address
+          ~mutate:(fun pc -> uresize internal.register_zero.value 12 +: pc)
+          internal.pc
+          ok
+          internal
+      ]
+  ; (* XOR the first register with the state of the PRNG *)
+    when_
+      (internal.primary_op ==:. 12)
+      [ TargetRegister.assign
+          internal.opcode_first_register
+          (internal.opcode_first_register.value ^: select random_state.pseudo_random 7 0)
+      ; internal.pc <-- internal.pc.value +:. 2
+      ; ok
+      ]
+  ]
+;;
+
 let create (i : _ I.t) : _ O.t =
   let open Always in
   let open Variable in
@@ -363,7 +434,6 @@ let create (i : _ I.t) : _ O.t =
   let in_execute = wire ~default:(Signal.of_int ~width:1 0) in
   let internal = ExecutorInternal.create () in
   let state = internal.state in
-  let ok = proc [ error <--. 0; done_ <--. 1; state.set_next Fetch_op ] in
   let main_execution =
     [ state.switch
         [ Startup, startup ~random_state_seed ~internal ~state
@@ -375,73 +445,18 @@ let create (i : _ I.t) : _ O.t =
               ~ram
               ~state )
         ; ( Execute
-          , [ in_execute <--. 1
-            ; (* This error state will become 0 if any op is matched *)
-              error <--. 1
-            ; (* We use 0 (originally native code call) as a No-op *)
-              when_ (internal.primary_op ==:. 0) [ no_op ok internal ]
-            ; (* Jump to the 12 bits at the end of the opcode *)
-              when_
-                (internal.primary_op ==:. 1)
-                [ assign_address internal.pc ok internal ]
-            ; (* Skip the next instruction of register is equal to immediate *)
-              when_ (internal.primary_op ==:. 3) [ skip_imm_inv ( ==: ) ok internal ]
-            ; (* Skip the next instruction of register is not equal to immediate (dual of the opcode above) *)
-              when_ (internal.primary_op ==:. 4) [ skip_imm_inv ( <>: ) ok internal ]
-            ; (* Skip the next instruction of register is equal to the second target register *)
-              when_ (internal.primary_op ==:. 5) [ skip_reg_inv ( ==: ) ok internal ]
-            ; (* Assigns the register pointed to by the second nibble of the opcode to the value stored in the final byte of the opcode *)
-              when_
-                (internal.primary_op ==:. 6)
-                [ combine_register_imm ~f:(fun _ x -> x) ok internal ]
-            ; (* Accumulate an immediate into the register addressed to by the second nibble of the opcode *)
-              when_
-                (internal.primary_op ==:. 7)
-                [ combine_register_imm ~f:(fun x y -> x +: y) ok internal ]
-            ; (* 8__x opcodes are register operations *)
-              when_ (internal.primary_op ==:. 8) [ register_instructions ok internal ]
-            ; (* Skip the next instruction of register is not equal to the second target register *)
-              when_ (internal.primary_op ==:. 9) [ skip_reg_inv ( <>: ) ok internal ]
-            ; (* Set the i register to the opcode address *)
-              when_
-                (internal.primary_op ==:. 10)
-                [ assign_address internal.i ok internal
-                ; internal.pc <-- internal.pc.value +:. 2
-                ]
-            ; (* Set the pc register to a fixed address + V0 *)
-              when_
-                (internal.primary_op ==:. 11)
-                [ assign_address
-                    ~mutate:(fun pc -> uresize internal.register_zero.value 12 +: pc)
-                    internal.pc
-                    ok
-                    internal
-                ]
-            ; (* XOR the first register with the state of the PRNG *)
-              when_
-                (internal.primary_op ==:. 12)
-                [ TargetRegister.assign
-                    internal.opcode_first_register
-                    (internal.opcode_first_register.value
-                    ^: select random_state.pseudo_random 7 0)
-                ; internal.pc <-- internal.pc.value +:. 2
-                ; ok
-                ]
-            ] )
+          , execute_instruction
+              ~in_execute
+              ~error
+              ~internal
+              ~ram
+              ~random_state
+              ~state
+              ~done_ )
         ]
     ]
   in
-  compile
-    [ if_
-        (i.program ==:. 1)
-        [ ram.read_address <-- i.program_address
-        ; ram.write_enable <-- i.program_write_enable
-        ; ram.write_address <-- i.program_address
-        ; ram.write_data <-- i.program_data
-        ; internal.pc <-- i.program_pc
-        ]
-        main_execution
-    ];
+  compile [ if_ (i.program ==:. 1) (programming_mode ~internal ~ram i) main_execution ];
   { O.in_execute = in_execute.value
   ; program_read_data = ram.read_data
   ; program_read_address = ram.read_address.value

@@ -28,9 +28,13 @@ let machine_ram ~write_enable ~write_address ~write_data ~read_address =
 
 let create () =
   let write_enable = Variable.wire ~default:(Signal.of_int ~width:(Sized.size `Bit) 0) in
-  let write_address = Variable.wire ~default:(Signal.of_int ~width:(Sized.size `Address) 0) in
+  let write_address =
+    Variable.wire ~default:(Signal.of_int ~width:(Sized.size `Address) 0)
+  in
   let write_data = Variable.wire ~default:(Signal.of_int ~width:(Sized.size `Byte) 0) in
-  let read_address = Variable.wire ~default:(Signal.of_int ~width:(Sized.size `Address) 0) in
+  let read_address =
+    Variable.wire ~default:(Signal.of_int ~width:(Sized.size `Address) 0)
+  in
   let read_data =
     machine_ram
       ~write_enable:write_enable.value
