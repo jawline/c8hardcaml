@@ -14,9 +14,8 @@ end
 
 module I = struct
   type 'a t =
-    { 
-    clock : 'a [@bits 1]
-    ; clear : 'a [@bits 1] 
+    { clock : 'a [@bits 1]
+    ; clear : 'a [@bits 1]
     ; input_pc : 'a [@bits 12]
     ; input_i : 'a [@bits 12]
     ; input_sp : 'a [@bits 32]
@@ -29,7 +28,7 @@ end
 
 module O = struct
   type 'a t =
-          { pc : 'a [@bits 12]
+    { pc : 'a [@bits 12]
     ; i : 'a [@bits 12]
     ; sp : 'a [@bits 32]
     ; error : 'a [@bits 8]
@@ -304,10 +303,11 @@ let combine_register_imm
 let create (i : _ I.t) =
   let open Always in
   let open Variable in
-
   let random_state_seed = wire ~default:(Signal.of_int ~width:64 0) in
-  let random_state = Xor_shift.create { Xor_shift.I.clock = i.clock ; clear = i.clear ; seed = random_state_seed.value } in
-  
+  let random_state =
+    Xor_shift.create
+      { Xor_shift.I.clock = i.clock; clear = i.clear; seed = random_state_seed.value }
+  in
   let error = reg ~enable:vdd ~width:8 r_sync in
   let done_ = reg ~enable:vdd ~width:1 r_sync in
   let internal = ExecutorInternal.create () in
@@ -315,12 +315,14 @@ let create (i : _ I.t) =
   let ok = proc [ error <--. 0; done_ <--. 1; state.set_next Wait ] in
   compile
     [ state.switch
-        [ ( Startup, [
-                (* Seed the PRNG on the first cycle *) random_state_seed <--. 43294932313
-                ; state.set_next Wait ]) ;
-                ( Wait
-          , [ done_ <--. 0 ;
-            when_
+        [ ( Startup
+          , [ (* Seed the PRNG on the first cycle *)
+              random_state_seed <--. 43294932313
+            ; state.set_next Wait
+            ] )
+        ; ( Wait
+          , [ done_ <--. 0
+            ; when_
                 (i.begin_ ==:. 1)
                 [ state.set_next Executing
                 ; internal.executing_opcode <-- i.opcode
@@ -363,7 +365,9 @@ let create (i : _ I.t) =
             ; (* Set the i register to the opcode address *)
               when_
                 (internal.primary_op ==:. 10)
-                [ assign_address internal.i ok internal ; internal.pc <-- internal.pc.value +:. 2 ]
+                [ assign_address internal.i ok internal
+                ; internal.pc <-- internal.pc.value +:. 2
+                ]
             ; (* Set the pc register to a fixed address + V0 *)
               when_
                 (internal.primary_op ==:. 11)
@@ -373,9 +377,16 @@ let create (i : _ I.t) =
                     ok
                     internal
                 ]
-                ; (* XOR the first register with the state of the PRNG *) when_ (internal.primary_op ==:. 12)
+            ; (* XOR the first register with the state of the PRNG *)
+              when_
+                (internal.primary_op ==:. 12)
                 [ TargetRegister.assign
-            internal.opcode_first_register  (internal.opcode_first_register.value ^: (select random_state.pseudo_random 7 0)) ; internal.pc <-- internal.pc.value +:. 2 ; ok ]
+                    internal.opcode_first_register
+                    (internal.opcode_first_register.value
+                    ^: select random_state.pseudo_random 7 0)
+                ; internal.pc <-- internal.pc.value +:. 2
+                ; ok
+                ]
             ] )
         ]
     ];
@@ -749,10 +760,7 @@ module Test = struct
 
   let%expect_test "test random state" =
     let pc, error, registers =
-      test
-        ~opcodes:[ assign_v1_1; xor_v1_random ]
-        ~create
-        ~stop_when:standard_stop
+      test ~opcodes:[ assign_v1_1; xor_v1_random ] ~create ~stop_when:standard_stop
     in
     let pc, error = Bits.to_int pc, Bits.to_int error in
     Core.print_s [%message (pc : int) (error : int)];
@@ -765,5 +773,4 @@ module Test = struct
         V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
         V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
   ;;
-
 end

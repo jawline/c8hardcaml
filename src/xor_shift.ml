@@ -12,17 +12,15 @@ open Global
 
 module I = struct
   type 'a t =
-    { 
-    clock : 'a [@bits 1]
-    ; clear : 'a [@bits 1] 
+    { clock : 'a [@bits 1]
+    ; clear : 'a [@bits 1]
     ; seed : 'a [@bits 64]
     }
   [@@deriving sexp_of, hardcaml]
 end
 
 module O = struct
-  type 'a t = { pseudo_random : 'a [@bits 64] }
-  [@@deriving sexp_of, hardcaml]
+  type 'a t = { pseudo_random : 'a [@bits 64] } [@@deriving sexp_of, hardcaml]
 end
 
 let create (i : _ I.t) =
@@ -30,51 +28,45 @@ let create (i : _ I.t) =
   let open Variable in
   let pseudo_random = reg ~enable:vdd ~width:64 r_sync in
   let next = pseudo_random.value in
-  let next = next ^: (sll next 13) in
-  let next = next ^: (srl next 7) in
-  let next = next ^: (sll next 17) in
+  let next = next ^: sll next 13 in
+  let next = next ^: srl next 7 in
+  let next = next ^: sll next 17 in
   let next_value = wire ~default:next in
-  compile [
-   when_ (i.seed <>:. 0) [ next_value <-- i.seed ]
-   ; pseudo_random <-- next_value.value
-  ];
+  compile
+    [ when_ (i.seed <>:. 0) [ next_value <-- i.seed ]
+    ; pseudo_random <-- next_value.value
+    ];
   { O.pseudo_random = next_value.value }
 ;;
 
 module Test = struct
-
-        let sim_set_seed ~seed (i : _ I.t) =
-            i.seed := Bits.of_int ~width:64 seed
-        ;;
-
+  let sim_set_seed ~seed (i : _ I.t) = i.seed := Bits.of_int ~width:64 seed
 
   let cycle sim (o : _ O.t) =
     Cyclesim.cycle sim;
-    Core.print_s [%message "" ~pseudo_random:(Bits.to_int !(o.pseudo_random) : int)];;
-  
+    Core.print_s [%message "" ~pseudo_random:(Bits.to_int !(o.pseudo_random) : int)]
+  ;;
+
   let test ~seed ~cycles =
     let module Simulator = Cyclesim.With_interface (I) (O) in
     let sim = Simulator.create create in
     let inputs : _ I.t = Cyclesim.inputs sim in
     let outputs : _ O.t = Cyclesim.outputs sim in
-
     sim_set_seed ~seed inputs;
-
     (* Cycle twice to show that the random number generator does not start
        when seed is set *)
     cycle sim outputs;
     cycle sim outputs;
     (* Reset seed to zero and generate ~cycle random values *)
     sim_set_seed ~seed:0 inputs;
-    Sequence.range 0 cycles |> Sequence.iter ~f:(fun _ ->
-            cycle sim outputs;
-    );
-    () 
+    Sequence.range 0 cycles |> Sequence.iter ~f:(fun _ -> cycle sim outputs);
+    ()
   ;;
 
   let%expect_test "seed and cycle" =
-    test ~seed:967531223135 ~cycles:128; 
-    [%expect {|
+    test ~seed:967531223135 ~cycles:128;
+    [%expect
+      {|
       (pseudo_random 967531223135)
       (pseudo_random 967531223135)
       (pseudo_random 2482561710366037723)

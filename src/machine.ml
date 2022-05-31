@@ -13,8 +13,7 @@ end
 
 module I = struct
   type 'a t =
-    { 
-    clock : 'a [@bits 1]
+    { clock : 'a [@bits 1]
     ; clear : 'a [@bits 1]
     ; program : 'a [@bits 1]
     ; program_pc : 'a [@bits 12]
@@ -54,7 +53,7 @@ let create (i : 'a I.t) : 'a O.t =
   let executor =
     Executor.create
       { Executor.I.clock = i.clock
-      ; clear = i.clear 
+      ; clear = i.clear
       ; input_pc = program_counter.value
       ; input_i = program_pointer.value
       ; input_sp = sp.value
@@ -134,9 +133,8 @@ let create (i : 'a I.t) : 'a O.t =
 ;;
 
 module Test = struct
-
-  let pp v = Bits.to_int !(v) |> Int.to_string
-  let ppb v = Bits.to_string !(v)
+  let pp v = Bits.to_int !v |> Int.to_string
+  let ppb v = Bits.to_string !v
 
   let sim_set_write_ram sim (i : _ I.t) (o : _ O.t) addr data =
     i.program := Bits.of_int ~width:1 1;
@@ -176,8 +174,7 @@ module Test = struct
           ~executor_i:(pp o.executor_state.i)
           ~executor_done:(pp o.executor_state.done_)
           ~executor_error:(pp o.executor_state.error)
-          ~executor_registers:(List.map o.executor_state.registers ~f:pp : string list)
-    ]
+          ~executor_registers:(List.map o.executor_state.registers ~f:pp : string list)]
   ;;
 
   let test ~rom_file ~create =
@@ -185,22 +182,22 @@ module Test = struct
     let sim = Simulator.create create in
     let inputs : _ I.t = Cyclesim.inputs sim in
     let outputs : _ O.t = Cyclesim.outputs sim in
-
     (* Write the test rom to main memory *)
     String.iteri rom_file ~f:(fun i c ->
-      sim_set_write_ram sim inputs outputs i (Char.to_int c)
-    );
-
+        sim_set_write_ram sim inputs outputs i (Char.to_int c));
     (* Simulate the program we just wrote running for 100 cycles *)
-    Sequence.range 0 100 |> Sequence.iter ~f:(fun _ ->
-            sim_cycle_not_programming sim inputs outputs);
+    Sequence.range 0 100
+    |> Sequence.iter ~f:(fun _ -> sim_cycle_not_programming sim inputs outputs);
     ()
   ;;
 
   let%expect_test "program memory" =
-    let%bind rom_file = Reader.file_contents "../test_rom/Maze (alt) [David Winter, 199x].ch8" in
+    let%bind rom_file =
+      Reader.file_contents "../test_rom/Maze (alt) [David Winter, 199x].ch8"
+    in
     test ~rom_file ~create;
-    [%expect {|
+    [%expect
+      {|
       (last_read 96)
       (last_read 0)
       (last_read 97)
@@ -607,6 +604,6 @@ module Test = struct
        (program_read_address 0) (in_execute 1) (executor_pc 12) (executor_i 542)
        (executor_done 0) (executor_error 1)
        (executor_registers (0 0 131 0 0 0 0 0 0 0 0 0 0 0 0 0))) |}];
-       return ()
+    return ()
   ;;
 end
