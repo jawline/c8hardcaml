@@ -23,6 +23,9 @@ let assign_v0_v1 = 0b1000_0000_0001_0000
 let or_v0_v1 = 0b1000_0000_0001_0001
 let and_v0_v1 = 0b1000_0000_0001_0010
 let xor_v0_v1 = 0b1000_0000_0001_0011
+let jump_to_512 = 0b0001001000000000
+let jump_to_1024 = 0b0001010000000000
+let jump_to_1 = 0b0001000000000001
 
 let bounded_standard_stop ?(max = 1000) () =
   let executed = ref 0 in
@@ -37,6 +40,7 @@ let test ~opcodes ~stop_when =
   let inputs : _ I.t = Cyclesim.inputs sim in
   let outputs : _ O.t = Cyclesim.outputs sim in
   let rom = make_rom_of_opcodes ~opcodes in
+  print_s [%message (rom : int list)];
   sim_program_rom sim inputs ~rom;
   List.iter opcodes ~f:(fun _ ->
       let step () =
@@ -61,38 +65,48 @@ let print_registers ~registers =
 ;;
 
 let%expect_test "step (enabled)" =
-  let pc, _error, registers = test ~opcodes:[ no_op ] ~stop_when:(bounded_standard_stop ()) in
+  let pc, _error, _registers =
+    test ~opcodes:[ no_op ] ~stop_when:(bounded_standard_stop ())
+  in
   let pc = Bits.to_int pc in
   Core.print_s [%message (pc : int)];
-  print_registers ~registers;
-  [%expect {| (pc 2) |}]
+  [%expect {|
+    (rom (0 0))
+    (pc 2) |}]
 ;;
 
-(* 
 let%expect_test "step (jump) to 1024" =
-  let jump_to_addr = Bits.of_string "16'b0001010000000000" in
-  let pc, error, _ = test ~opcodes:[ jump_to_addr ] ~create ~stop_when:standard_stop in
+  let pc, error, _ =
+    test ~opcodes:[ jump_to_1024 ] ~stop_when:(bounded_standard_stop ())
+  in
   let pc, error = Bits.to_int pc, Bits.to_int error in
   Core.print_s [%message (pc : int) (error : int)];
-  [%expect {| ((pc 1024) (error 0)) |}]
+  [%expect {|
+    (rom (20 0))
+    ((pc 1024) (error 0)) |}]
 ;;
 
 let%expect_test "step (jump) to 512" =
-  let jump_to_addr = Bits.of_string "16'b0001001000000000" in
-  let pc, error, _ = test ~opcodes:[ jump_to_addr ] ~create ~stop_when:standard_stop in
+  let pc, error, _ =
+    test ~opcodes:[ jump_to_512 ] ~stop_when:(bounded_standard_stop ())
+  in
   let pc, error = Bits.to_int pc, Bits.to_int error in
   Core.print_s [%message (pc : int) (error : int)];
-  [%expect {| ((pc 512) (error 0)) |}]
+  [%expect {|
+    (rom (18 0))
+    ((pc 512) (error 0)) |}]
 ;;
 
 let%expect_test "step (jump) to 1" =
-  let jump_to_addr = Bits.of_string "16'b0001000000000001" in
-  let pc, error, _ = test ~opcodes:[ jump_to_addr ] ~create ~stop_when:standard_stop in
+  let pc, error, _ = test ~opcodes:[ jump_to_1 ] ~stop_when:(bounded_standard_stop ()) in
   let pc, error = Bits.to_int pc, Bits.to_int error in
   Core.print_s [%message (pc : int) (error : int)];
-  [%expect {| ((pc 1) (error 0)) |}]
+  [%expect {|
+    (rom (16 1))
+    ((pc 1) (error 0)) |}]
 ;;
 
+(* 
 let%expect_test "assign V0 to 1" =
   let pc, error, registers =
     test ~opcodes:[ assign_v0_1 ] ~create ~stop_when:standard_stop

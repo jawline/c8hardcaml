@@ -44,6 +44,7 @@ module O = struct
     ; program_read_address : 'a [@bits 12]
     ; program_read_data : 'a [@bits 8]
     ; op : 'a [@bits 16]
+    ; working_op : 'a [@bits 16]
     ; registers : 'a Registers.t
     }
   [@@deriving sexp_of, hardcaml]
@@ -321,17 +322,17 @@ let fetch
   let open Always in
   let fetch_cycle = Variable.reg ~enable:vdd ~width:2 r_sync in
   let op_first = Variable.reg ~enable:vdd ~width:8 r_sync in
-  let op_second = Variable.reg ~enable:vdd ~width:8 r_sync in
-  let op = concat_msb [ op_first.value; op_second.value ] in
+  (* On the fourth cycle op will be a concat of the first read and the second *)
+  let op = concat_msb [ op_first.value; ram.read_data ] in
   [ done_ <--. 0
   ; when_ (fetch_cycle.value ==:. 0) [ ram.read_address <-- pc.value ]
   ; when_ (fetch_cycle.value ==:. 1) [ op_first <-- ram.read_data ]
   ; when_ (fetch_cycle.value ==:. 2) [ ram.read_address <-- pc.value +:. 1 ]
   ; when_
       (fetch_cycle.value ==:. 3)
-      [ op_second <-- ram.read_data; executing_opcode <-- op; state.set_next Execute ]
+      [ executing_opcode <-- op; state.set_next Execute ]
   ; fetch_cycle <-- fetch_cycle.value +:. 1
-  ]
+  ], op
 ;;
 
 let startup
@@ -434,16 +435,17 @@ let create (i : _ I.t) : _ O.t =
   let in_execute = wire ~default:(Signal.of_int ~width:1 0) in
   let internal = ExecutorInternal.create () in
   let state = internal.state in
-  let main_execution =
-    [ state.switch
-        [ Startup, startup ~random_state_seed ~internal ~state
-        ; ( Fetch_op
-          , fetch
+  let fetch, working_op = fetch
               ~done_
               ~pc:internal.pc
               ~executing_opcode:internal.executing_opcode
               ~ram
-              ~state )
+              ~state in
+  let main_execution =
+    [ state.switch
+        [ Startup, startup ~random_state_seed ~internal ~state
+        ; ( Fetch_op
+          , fetch )
         ; ( Execute
           , execute_instruction
               ~in_execute
@@ -461,6 +463,7 @@ let create (i : _ I.t) : _ O.t =
   ; program_read_data = ram.read_data
   ; program_read_address = ram.read_address.value
   ; op = internal.executing_opcode.value
+  ; working_op = working_op
   ; registers =
       { Registers.pc = internal.pc.value
       ; i = internal.i.value
