@@ -6,6 +6,7 @@ open Global
 (* This module executes a single instruction *)
 module States = struct
   type t =
+    | Startup
     | Wait
     | Executing
   [@@deriving sexp_of, compare, enumerate]
@@ -303,6 +304,10 @@ let combine_register_imm
 let create (i : _ I.t) =
   let open Always in
   let open Variable in
+
+  let random_state_seed = wire ~default:(Signal.of_int ~width:64 0) in
+  let random_state = Xor_shift.create { Xor_shift.I.clock = i.clock ; clear = i.clear ; seed = random_state_seed.value } in
+  
   let error = reg ~enable:vdd ~width:8 r_sync in
   let done_ = reg ~enable:vdd ~width:1 r_sync in
   let internal = ExecutorInternal.create () in
@@ -310,7 +315,10 @@ let create (i : _ I.t) =
   let ok = proc [ error <--. 0; done_ <--. 1; state.set_next Wait ] in
   compile
     [ state.switch
-        [ ( Wait
+        [ ( Startup, [
+                (* Seed the PRNG on the first cycle *) random_state_seed <--. 43294932313
+                ; state.set_next Wait ]) ;
+                ( Wait
           , [ done_ <--. 0 ;
             when_
                 (i.begin_ ==:. 1)
@@ -365,6 +373,9 @@ let create (i : _ I.t) =
                     ok
                     internal
                 ]
+                ; (* XOR the first register with the state of the PRNG *) when_ (internal.primary_op ==:. 12)
+                [ TargetRegister.assign
+            internal.opcode_first_register  (internal.opcode_first_register.value ^: (select random_state.pseudo_random 7 0)) ; internal.pc <-- internal.pc.value +:. 2 ; ok ]
             ] )
         ]
     ];
@@ -383,6 +394,7 @@ module Test = struct
   let assign_v0_2 = Bits.of_string "16'b0110000000000010"
   let assign_v0_3 = Bits.of_string "16'b0110000000000011"
   let assign_v1_1 = Bits.of_string "16'b0110000100000001"
+  let xor_v1_random = Bits.of_string "16'b1100000100000000"
   let assign_v1_2 = Bits.of_string "16'b0110000100000010"
   let assign_v2_3 = Bits.of_string "16'b0110001000000011"
   let add_v0_5 = Bits.of_string "16'b0111000000000101"
@@ -734,4 +746,24 @@ module Test = struct
         V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
         V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
   ;;
+
+  let%expect_test "test random state" =
+    let pc, error, registers =
+      test
+        ~opcodes:[ assign_v1_1; xor_v1_random ]
+        ~create
+        ~stop_when:standard_stop
+    in
+    let pc, error = Bits.to_int pc, Bits.to_int error in
+    Core.print_s [%message (pc : int) (error : int)];
+    print_registers ~registers;
+    [%expect
+      {|
+      ((pc 4) (error 0))
+      (as_strings
+       (V0:00000000 V1:10110111 V2:00000000 V3:00000000 V4:00000000 V5:00000000
+        V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
+        V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
+  ;;
+
 end
