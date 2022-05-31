@@ -3,6 +3,8 @@ open! Hardcaml
 open! Signal
 open Global
 
+let prng_seed = 2341940502312319249
+
 (* This module executes a single instruction *)
 module States = struct
   type t =
@@ -317,7 +319,7 @@ let create (i : _ I.t) =
     [ state.switch
         [ ( Startup
           , [ (* Seed the PRNG on the first cycle *)
-              random_state_seed <--. 43294932313
+              random_state_seed <--. prng_seed
             ; state.set_next Wait
             ] )
         ; ( Wait
