@@ -7,6 +7,7 @@ module Sized = struct
     match t with
     | `Bit -> 1
     | `Address -> 12
+    | `Main_address -> 16
     | `Byte -> 8
   ;;
 end

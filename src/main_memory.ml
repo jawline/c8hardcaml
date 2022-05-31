@@ -4,6 +4,9 @@ open Signal
 open Always
 open Global
 
+let ram_size = 4096
+let frame_buffer = 64 * 32
+
 (** A helper module to wrap wires to read and write from memory in a default structure *)
 
 type t =
@@ -18,7 +21,7 @@ let machine_ram ~write_enable ~write_address ~write_data ~read_address =
   let read_ports =
     Ram.create
       ~collision_mode:Read_before_write
-      ~size:4096
+      ~size:(ram_size + frame_buffer)
       ~write_ports:[| { write_enable; write_address; write_data; write_clock = clock } |]
       ~read_ports:[| { read_enable = vdd; read_address; read_clock = clock } |]
       ()
@@ -29,11 +32,11 @@ let machine_ram ~write_enable ~write_address ~write_data ~read_address =
 let create () =
   let write_enable = Variable.wire ~default:(Signal.of_int ~width:(Sized.size `Bit) 0) in
   let write_address =
-    Variable.wire ~default:(Signal.of_int ~width:(Sized.size `Address) 0)
+    Variable.wire ~default:(Signal.of_int ~width:(Sized.size `Main_address) 0)
   in
   let write_data = Variable.wire ~default:(Signal.of_int ~width:(Sized.size `Byte) 0) in
   let read_address =
-    Variable.wire ~default:(Signal.of_int ~width:(Sized.size `Address) 0)
+    Variable.wire ~default:(Signal.of_int ~width:(Sized.size `Main_address) 0)
   in
   let read_data =
     machine_ram

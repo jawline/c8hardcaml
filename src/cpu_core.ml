@@ -13,6 +13,13 @@ module States = struct
   [@@deriving sexp_of, compare, enumerate]
 end
 
+module Draw_state = struct
+  type t =
+    | Read
+    | Write
+  [@@deriving sexp_of, compare, enumerate]
+end
+
 module I = struct
   type 'a t =
     { clock : 'a [@bits 1]
@@ -20,7 +27,7 @@ module I = struct
     ; program : 'a [@bits 1]
     ; program_pc : 'a [@bits 12]
     ; program_write_enable : 'a [@bits 1]
-    ; program_address : 'a [@bits 12]
+    ; program_address : 'a [@bits 16]
     ; program_data : 'a [@bits 8]
     }
   [@@deriving sexp_of, hardcaml]
@@ -41,7 +48,7 @@ end
 module O = struct
   type 'a t =
     { in_execute : 'a [@bits 1]
-    ; program_read_address : 'a [@bits 12]
+    ; program_read_address : 'a [@bits 16]
     ; program_read_data : 'a [@bits 8]
     ; op : 'a [@bits 16]
     ; working_op : 'a [@bits 16]
@@ -49,6 +56,8 @@ module O = struct
     }
   [@@deriving sexp_of, hardcaml]
 end
+
+let addr_to_main_addr addr = uresize addr (Sized.size `Main_address)
 
 (* This updates a register using a register index value by one hot assignment.
    If no register matches the target index then none are updated but that should
@@ -324,15 +333,16 @@ let fetch
   let op_first = Variable.reg ~enable:vdd ~width:8 r_sync in
   (* On the fourth cycle op will be a concat of the first read and the second *)
   let op = concat_msb [ op_first.value; ram.read_data ] in
-  [ done_ <--. 0
-  ; when_ (fetch_cycle.value ==:. 0) [ ram.read_address <-- pc.value ]
-  ; when_ (fetch_cycle.value ==:. 1) [ op_first <-- ram.read_data ]
-  ; when_ (fetch_cycle.value ==:. 2) [ ram.read_address <-- pc.value +:. 1 ]
-  ; when_
-      (fetch_cycle.value ==:. 3)
-      [ executing_opcode <-- op; state.set_next Execute ]
-  ; fetch_cycle <-- fetch_cycle.value +:. 1
-  ], op
+  ( [ done_ <--. 0
+    ; when_ (fetch_cycle.value ==:. 0) [ ram.read_address <-- addr_to_main_addr pc.value ]
+    ; when_ (fetch_cycle.value ==:. 1) [ op_first <-- ram.read_data ]
+    ; when_
+        (fetch_cycle.value ==:. 2)
+        [ ram.read_address <-- addr_to_main_addr (pc.value +:. 1) ]
+    ; when_ (fetch_cycle.value ==:. 3) [ executing_opcode <-- op; state.set_next Execute ]
+    ; fetch_cycle <-- fetch_cycle.value +:. 1
+    ]
+  , op )
 ;;
 
 let startup
@@ -357,6 +367,25 @@ let programming_mode ~(internal : ExecutorInternal.t) ~(ram : Main_memory.t) (i 
   ; ram.write_address <-- i.program_address
   ; ram.write_data <-- i.program_data
   ; internal.pc <-- i.program_pc
+  ]
+;;
+
+let draw_instruction ~ok ~(internal : ExecutorInternal.t) ~(ram : Main_memory.t) =
+  let open Always in
+  let state = State_machine.create (module Draw_state) ~enable:vdd r_sync in
+  let _x = internal.opcode_first_register.value in
+  let _y = internal.opcode_second_register.value in
+  let n = internal.opcode_final_nibble in
+  (* One larger than the largest N *)
+  let step = Variable.reg ~enable:vdd ~width:(Sized.size `Byte + 1) r_sync in
+  let read_step =
+    [ ram.read_address <-- addr_to_main_addr (internal.i.value +: step.value)
+    ; state.set_next Write
+    ]
+  in
+  let write_step = [ step <-- step.value +:. 1; state.set_next Read ] in
+  let step_draw = [ state.switch [ Read, read_step; Write, write_step ] ] in
+  [ if_ (n ==: step.value +:. 1) [ internal.pc <-- internal.pc.value +:. 2; ok ] step_draw
   ]
 ;;
 
@@ -435,17 +464,13 @@ let create (i : _ I.t) : _ O.t =
   let in_execute = wire ~default:(Signal.of_int ~width:1 0) in
   let internal = ExecutorInternal.create () in
   let state = internal.state in
-  let fetch, working_op = fetch
-              ~done_
-              ~pc:internal.pc
-              ~executing_opcode:internal.executing_opcode
-              ~ram
-              ~state in
+  let fetch, working_op =
+    fetch ~done_ ~pc:internal.pc ~executing_opcode:internal.executing_opcode ~ram ~state
+  in
   let main_execution =
     [ state.switch
         [ Startup, startup ~random_state_seed ~internal ~state
-        ; ( Fetch_op
-          , fetch )
+        ; Fetch_op, fetch
         ; ( Execute
           , execute_instruction
               ~in_execute
@@ -463,7 +488,7 @@ let create (i : _ I.t) : _ O.t =
   ; program_read_data = ram.read_data
   ; program_read_address = ram.read_address.value
   ; op = internal.executing_opcode.value
-  ; working_op = working_op
+  ; working_op
   ; registers =
       { Registers.pc = internal.pc.value
       ; i = internal.i.value
