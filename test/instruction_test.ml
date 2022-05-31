@@ -167,7 +167,9 @@ let%expect_test "assign V6 to max_int (255)" =
 
 let%expect_test "test skip if equal on equal value" =
   let pc, error, registers =
-    test ~opcodes:[ assign_v0_five; skip_if_v0_five ] ~stop_when:(bounded_standard_stop ())
+    test
+      ~opcodes:[ assign_v0_five; skip_if_v0_five ]
+      ~stop_when:(bounded_standard_stop ())
   in
   let pc, error = Bits.to_int pc, Bits.to_int error in
   Core.print_s [%message (pc : int) (error : int)];
@@ -183,7 +185,9 @@ let%expect_test "test skip if equal on equal value" =
 
 let%expect_test "test skip if equal on non-equal value" =
   let pc, error, registers =
-    test ~opcodes:[ assign_v0_four; skip_if_v0_five ] ~stop_when:(bounded_standard_stop ())
+    test
+      ~opcodes:[ assign_v0_four; skip_if_v0_five ]
+      ~stop_when:(bounded_standard_stop ())
   in
   let pc, error = Bits.to_int pc, Bits.to_int error in
   Core.print_s [%message (pc : int) (error : int)];
@@ -197,10 +201,11 @@ let%expect_test "test skip if equal on non-equal value" =
         V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
 ;;
 
-(* 
 let%expect_test "test skip if not equal on equal value" =
   let pc, error, registers =
-    test ~opcodes:[ assign_v0_five; skip_if_v0_not_five ] ~create ~stop_when:standard_stop
+    test
+      ~opcodes:[ assign_v0_five; skip_if_v0_not_five ]
+      ~stop_when:(bounded_standard_stop ())
   in
   let pc, error = Bits.to_int pc, Bits.to_int error in
   Core.print_s [%message (pc : int) (error : int)];
@@ -218,8 +223,7 @@ let%expect_test "test skip if v0 = v1 when v0 = v1" =
   let pc, error, registers =
     test
       ~opcodes:[ assign_v0_five; assign_v1_five; skip_if_v0_eq_v1 ]
-      ~create
-      ~stop_when:standard_stop
+      ~stop_when:(bounded_standard_stop ())
   in
   let pc, error = Bits.to_int pc, Bits.to_int error in
   Core.print_s [%message (pc : int) (error : int)];
@@ -237,8 +241,7 @@ let%expect_test "test skip if v0 = v1 when v0 <> v1" =
   let pc, error, registers =
     test
       ~opcodes:[ assign_v0_four; assign_v1_five; skip_if_v0_eq_v1 ]
-      ~create
-      ~stop_when:standard_stop
+      ~stop_when:(bounded_standard_stop ())
   in
   let pc, error = Bits.to_int pc, Bits.to_int error in
   Core.print_s [%message (pc : int) (error : int)];
@@ -254,7 +257,7 @@ let%expect_test "test skip if v0 = v1 when v0 <> v1" =
 
 let%expect_test "add 5 to v0 twices" =
   let pc, error, registers =
-    test ~opcodes:[ add_v0_5; add_v0_5 ] ~create ~stop_when:standard_stop
+    test ~opcodes:[ add_v0_5; add_v0_5 ] ~stop_when:(bounded_standard_stop ())
   in
   let pc, error = Bits.to_int pc, Bits.to_int error in
   Core.print_s [%message (pc : int) (error : int)];
@@ -270,7 +273,7 @@ let%expect_test "add 5 to v0 twices" =
 
 let%expect_test "assign 4 to v0 then add 5 to v0" =
   let pc, error, registers =
-    test ~opcodes:[ assign_v0_four; add_v0_5 ] ~create ~stop_when:standard_stop
+    test ~opcodes:[ assign_v0_four; add_v0_5 ] ~stop_when:(bounded_standard_stop ())
   in
   let pc, error = Bits.to_int pc, Bits.to_int error in
   Core.print_s [%message (pc : int) (error : int)];
@@ -286,7 +289,7 @@ let%expect_test "assign 4 to v0 then add 5 to v0" =
 
 let%expect_test "assign 2 to v1 then assign v0 to v1" =
   let pc, error, registers =
-    test ~opcodes:[ assign_v1_2; assign_v0_v1 ] ~create ~stop_when:standard_stop
+    test ~opcodes:[ assign_v1_2; assign_v0_v1 ] ~stop_when:(bounded_standard_stop ())
   in
   let pc, error = Bits.to_int pc, Bits.to_int error in
   Core.print_s [%message (pc : int) (error : int)];
@@ -302,7 +305,9 @@ let%expect_test "assign 2 to v1 then assign v0 to v1" =
 
 let%expect_test "assign 2 to v1 then assign 1 to v0 then or them" =
   let pc, error, registers =
-    test ~opcodes:[ assign_v1_1; assign_v0_2; or_v0_v1 ] ~create ~stop_when:standard_stop
+    test
+      ~opcodes:[ assign_v1_1; assign_v0_2; or_v0_v1 ]
+      ~stop_when:(bounded_standard_stop ())
   in
   let pc, error = Bits.to_int pc, Bits.to_int error in
   Core.print_s [%message (pc : int) (error : int)];
@@ -318,7 +323,9 @@ let%expect_test "assign 2 to v1 then assign 1 to v0 then or them" =
 
 let%expect_test "assign 2 to v1 then assign 3 to v0 then and them" =
   let pc, error, registers =
-    test ~opcodes:[ assign_v1_1; assign_v0_3; and_v0_v1 ] ~create ~stop_when:standard_stop
+    test
+      ~opcodes:[ assign_v1_1; assign_v0_3; and_v0_v1 ]
+      ~stop_when:(bounded_standard_stop ())
   in
   let pc, error = Bits.to_int pc, Bits.to_int error in
   Core.print_s [%message (pc : int) (error : int)];
@@ -334,7 +341,9 @@ let%expect_test "assign 2 to v1 then assign 3 to v0 then and them" =
 
 let%expect_test "assign 2 to v1 then assign 3 to v0 then xor them" =
   let pc, error, registers =
-    test ~opcodes:[ assign_v1_1; assign_v0_3; xor_v0_v1 ] ~create ~stop_when:standard_stop
+    test
+      ~opcodes:[ assign_v1_1; assign_v0_3; xor_v0_v1 ]
+      ~stop_when:(bounded_standard_stop ())
   in
   let pc, error = Bits.to_int pc, Bits.to_int error in
   Core.print_s [%message (pc : int) (error : int)];
@@ -350,7 +359,7 @@ let%expect_test "assign 2 to v1 then assign 3 to v0 then xor them" =
 
 let%expect_test "test random state" =
   let pc, error, registers =
-    test ~opcodes:[ assign_v1_1; xor_v1_random ] ~create ~stop_when:standard_stop
+    test ~opcodes:[ assign_v1_1; xor_v1_random ] ~stop_when:(bounded_standard_stop ())
   in
   let pc, error = Bits.to_int pc, Bits.to_int error in
   Core.print_s [%message (pc : int) (error : int)];
@@ -359,7 +368,7 @@ let%expect_test "test random state" =
     {|
       ((pc 4) (error 0))
       (as_strings
-       (V0:00000000 V1:10110111 V2:00000000 V3:00000000 V4:00000000 V5:00000000
+       (V0:00000000 V1:11100111 V2:00000000 V3:00000000 V4:00000000 V5:00000000
         V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
         V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
-;; *)
+;;
