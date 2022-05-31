@@ -53,7 +53,9 @@ let create (i : 'a I.t) : 'a O.t =
   in
   let executor =
     Executor.create
-      { Executor.I.input_pc = program_counter.value
+      { Executor.I.clock = i.clock
+      ; clear = i.clear 
+      ; input_pc = program_counter.value
       ; input_i = program_pointer.value
       ; input_sp = sp.value
       ; input_registers = List.map ~f:(fun v -> v.value) program_registers
