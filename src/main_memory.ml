@@ -15,6 +15,7 @@ type t =
   ; write_data : Always.Variable.t
   ; read_address : Always.Variable.t
   ; read_data : Signal.t
+  ; framebuffer_start : int
   }
 
 let machine_ram ~write_enable ~write_address ~write_data ~read_address =
@@ -45,5 +46,11 @@ let create () =
       ~write_data:write_data.value
       ~read_address:read_address.value
   in
-  { write_enable; write_address; write_data; read_address; read_data }
+  { write_enable
+  ; write_address
+  ; write_data
+  ; read_address
+  ; read_data
+  ; framebuffer_start = ram_size
+  }
 ;;

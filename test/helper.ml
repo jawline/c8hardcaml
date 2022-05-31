@@ -41,7 +41,7 @@ let _sim_read_addr sim (i : _ I.t) (o : _ O.t) addr =
   Cyclesim.cycle sim;
   Cyclesim.cycle sim;
   Cyclesim.cycle sim;
-  print_s [%message "" ~last_read:(pp o.program_read_data)]
+  print_s [%message "" ~last_read:(pp o.read_data)]
 ;;
 
 let sim_cycle_not_programming sim (i : _ I.t) (o : _ O.t) =
@@ -52,8 +52,11 @@ let sim_cycle_not_programming sim (i : _ I.t) (o : _ O.t) =
       ""
         ~op:(ppb o.op)
         ~working_op:(ppb o.working_op)
-        ~program_read_data:(pp o.program_read_data)
-        ~program_read_address:(pp o.program_read_address)
+        ~read_address:(pp o.read_address)
+        ~read_data:(pp o.write_data)
+        ~write_enable:(pp o.write_enable)
+        ~write_address:(pp o.write_address)
+        ~write_data:(pp o.write_data)
         ~in_execute:(pp o.in_execute)
         ~executor_pc:(pp o.registers.pc)
         ~executor_i:(pp o.registers.i)

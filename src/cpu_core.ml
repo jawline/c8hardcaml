@@ -48,8 +48,11 @@ end
 module O = struct
   type 'a t =
     { in_execute : 'a [@bits 1]
-    ; program_read_address : 'a [@bits 16]
-    ; program_read_data : 'a [@bits 8]
+    ; write_enable : 'a [@bits 1]
+    ; write_address : 'a [@bits 16]
+    ; write_data : 'a [@bits 8]
+    ; read_address : 'a [@bits 16]
+    ; read_data : 'a [@bits 8]
     ; op : 'a [@bits 16]
     ; working_op : 'a [@bits 16]
     ; registers : 'a Registers.t
@@ -372,21 +375,36 @@ let programming_mode ~(internal : ExecutorInternal.t) ~(ram : Main_memory.t) (i 
 
 let draw_instruction ~ok ~(internal : ExecutorInternal.t) ~(ram : Main_memory.t) =
   let open Always in
+  (* TODO: Collision bit *)
+  (* TODO: Test this instruction *)
   let state = State_machine.create (module Draw_state) ~enable:vdd r_sync in
-  let _x = internal.opcode_first_register.value in
-  let _y = internal.opcode_second_register.value in
-  let n = internal.opcode_final_nibble in
-  (* One larger than the largest N *)
-  let step = Variable.reg ~enable:vdd ~width:(Sized.size `Byte + 1) r_sync in
+  let x = uresize internal.opcode_first_register.value (Sized.size `Main_address) in
+  let y = uresize internal.opcode_second_register.value (Sized.size `Main_address) in
+  let n = uresize internal.opcode_final_nibble (Sized.size `Address) in 
+  (* Step calculates the current depth into the draw operation *)
+  let step = Variable.reg ~enable:vdd ~width:(Sized.size `Address) r_sync in
+  let framebuffer_address =
+    let step_value_as_address = uresize step.value (Sized.size `Main_address) in
+    (* Shift right by 5 to multiply by 32, the width of a row *)
+    let row_offset = sll (y +: step_value_as_address) 5 in
+    let framebuffer_offset = x +: row_offset in
+    framebuffer_offset +:. ram.framebuffer_start
+  in
   let read_step =
     [ ram.read_address <-- addr_to_main_addr (internal.i.value +: step.value)
     ; state.set_next Write
     ]
   in
-  let write_step = [ step <-- step.value +:. 1; state.set_next Read ] in
+  let write_step =
+    [ step <-- step.value +:. 1
+    ; ram.write_enable <--. 1
+    ; ram.write_address <-- framebuffer_address
+    ; ram.write_data <-- ram.read_data
+    ; state.set_next Read
+    ]
+  in
   let step_draw = [ state.switch [ Read, read_step; Write, write_step ] ] in
-  [ if_ (n ==: step.value +:. 1) [ internal.pc <-- internal.pc.value +:. 2; ok ] step_draw
-  ]
+  [ if_ (step.value +:. 1 ==: n) [ internal.pc <-- internal.pc.value +:. 2; ok ] step_draw ]
 ;;
 
 let execute_instruction
@@ -395,7 +413,7 @@ let execute_instruction
     ~done_
     ~(state : States.t Always.State_machine.t)
     ~(internal : ExecutorInternal.t)
-    ~ram:_
+    ~ram
     ~(random_state : _ Xor_shift.O.t)
   =
   let open Always in
@@ -447,6 +465,8 @@ let execute_instruction
       ; internal.pc <-- internal.pc.value +:. 2
       ; ok
       ]
+      ; when_ (internal.primary_op ==:. 13)
+      (draw_instruction ~ok ~internal ~ram)
   ]
 ;;
 
@@ -485,8 +505,11 @@ let create (i : _ I.t) : _ O.t =
   in
   compile [ if_ (i.program ==:. 1) (programming_mode ~internal ~ram i) main_execution ];
   { O.in_execute = in_execute.value
-  ; program_read_data = ram.read_data
-  ; program_read_address = ram.read_address.value
+  ; write_enable = ram.write_enable.value
+  ; write_address = ram.write_address.value
+  ; write_data = ram.write_data.value
+  ; read_data = ram.read_data
+  ; read_address = ram.read_address.value
   ; op = internal.executing_opcode.value
   ; working_op
   ; registers =
