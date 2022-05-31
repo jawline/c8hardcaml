@@ -380,7 +380,7 @@ let draw_instruction ~ok ~(internal : ExecutorInternal.t) ~(ram : Main_memory.t)
   let state = State_machine.create (module Draw_state) ~enable:vdd r_sync in
   let x = uresize internal.opcode_first_register.value (Sized.size `Main_address) in
   let y = uresize internal.opcode_second_register.value (Sized.size `Main_address) in
-  let n = uresize internal.opcode_final_nibble (Sized.size `Address) in 
+  let n = uresize internal.opcode_final_nibble (Sized.size `Address) in
   (* Step calculates the current depth into the draw operation *)
   let step = Variable.reg ~enable:vdd ~width:(Sized.size `Address) r_sync in
   let framebuffer_address =
@@ -404,7 +404,8 @@ let draw_instruction ~ok ~(internal : ExecutorInternal.t) ~(ram : Main_memory.t)
     ]
   in
   let step_draw = [ state.switch [ Read, read_step; Write, write_step ] ] in
-  [ if_ (step.value +:. 1 ==: n) [ internal.pc <-- internal.pc.value +:. 2; ok ] step_draw ]
+  [ if_ (step.value +:. 1 ==: n) [ internal.pc <-- internal.pc.value +:. 2; ok ] step_draw
+  ]
 ;;
 
 let execute_instruction
@@ -465,8 +466,7 @@ let execute_instruction
       ; internal.pc <-- internal.pc.value +:. 2
       ; ok
       ]
-      ; when_ (internal.primary_op ==:. 13)
-      (draw_instruction ~ok ~internal ~ram)
+  ; when_ (internal.primary_op ==:. 13) (draw_instruction ~ok ~internal ~ram)
   ]
 ;;
 
