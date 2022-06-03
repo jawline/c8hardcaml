@@ -386,7 +386,7 @@ let execute_instruction
           Draw.create
             ~spec:(r_sync)
             { Draw.I.clock = inputs.clock
-            ; clear 
+            ; clear  = inputs.clear
             ; enable = draw_enable.value
             ; x
             ; y
@@ -449,8 +449,8 @@ let execute_instruction
       (internal.primary_op ==:. 13)
       [ draw_enable <--. 1 
       ; draw_wiring
-      ; ok
-      ; when_ draw_implementation.finished [ internal.pc <-- internal.pc.value +:. 2 ]
+      ; error <--. 0
+      ; when_ draw_implementation.finished [ ok ; internal.pc <-- internal.pc.value +:. 2 ]
       ]
   ; when_
       (internal.primary_op ==:. 14)
