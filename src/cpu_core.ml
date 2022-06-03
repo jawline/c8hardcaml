@@ -13,13 +13,6 @@ module States = struct
   [@@deriving sexp_of, compare, enumerate]
 end
 
-module Draw_state = struct
-  type t =
-    | Read
-    | Write
-  [@@deriving sexp_of, compare, enumerate]
-end
-
 module I = struct
   type 'a t =
     { clock : 'a [@bits 1]
@@ -59,8 +52,6 @@ module O = struct
     }
   [@@deriving sexp_of, hardcaml]
 end
-
-let addr_to_main_addr addr = uresize addr (Sized.size `Main_address)
 
 (* This updates a register using a register index value by one hot assignment.
    If no register matches the target index then none are updated but that should
@@ -337,11 +328,11 @@ let fetch
   (* On the fourth cycle op will be a concat of the first read and the second *)
   let op = concat_msb [ op_first.value; ram.read_data ] in
   ( [ done_ <--. 0
-    ; when_ (fetch_cycle.value ==:. 0) [ ram.read_address <-- addr_to_main_addr pc.value ]
+    ; when_ (fetch_cycle.value ==:. 0) [ ram.read_address <-- to_main_addr  pc.value ]
     ; when_ (fetch_cycle.value ==:. 1) [ op_first <-- ram.read_data ]
     ; when_
         (fetch_cycle.value ==:. 2)
-        [ ram.read_address <-- addr_to_main_addr (pc.value +:. 1) ]
+        [ ram.read_address <-- to_main_addr (pc.value +:. 1) ]
     ; when_ (fetch_cycle.value ==:. 3) [ executing_opcode <-- op; state.set_next Execute ]
     ; fetch_cycle <-- fetch_cycle.value +:. 1
     ]
@@ -373,42 +364,6 @@ let programming_mode ~(internal : ExecutorInternal.t) ~(ram : Main_memory.t) (i 
   ]
 ;;
 
-let draw_instruction ~ok ~(internal : ExecutorInternal.t) ~(ram : Main_memory.t) =
-  let open Always in
-  (* TODO: Collision bit *)
-  (* TODO: Test this instruction *)
-  let state = State_machine.create (module Draw_state) ~enable:vdd r_sync in
-  let x = uresize internal.opcode_first_register.value (Sized.size `Main_address) in
-  let y = uresize internal.opcode_second_register.value (Sized.size `Main_address) in
-  let n = uresize internal.opcode_final_nibble (Sized.size `Address) in
-  (* Step calculates the current depth into the draw operation *)
-  let step = Variable.reg ~enable:vdd ~width:(Sized.size `Address) r_sync in
-  let framebuffer_address =
-    let step_value_as_address = uresize step.value (Sized.size `Main_address) in
-    (* Shifting y left by 3 is the same as multiply it by screen_width / 8 *)
-    let row_offset = sll (y +: step_value_as_address) 3 in
-    (* Shifting x right by three is the same as dividing it by 8 *)
-    let framebuffer_offset = srl x 3 +: row_offset in
-    framebuffer_offset +:. ram.framebuffer_start
-  in
-  let read_step =
-    [ ram.read_address <-- addr_to_main_addr (internal.i.value +: step.value)
-    ; state.set_next Write
-    ]
-  in
-  let write_step =
-    [ step <-- step.value +:. 1
-    ; ram.write_enable <--. 1
-    ; ram.write_address <-- framebuffer_address
-    ; ram.write_data <-- ram.read_data
-    ; state.set_next Read
-    ]
-  in
-  let step_draw = [ state.switch [ Read, read_step; Write, write_step ] ] in
-  [ if_ (step.value +:. 1 ==: n) [ internal.pc <-- internal.pc.value +:. 2; ok ] step_draw
-  ]
-;;
-
 let execute_instruction
     ~in_execute
     ~error
@@ -417,8 +372,31 @@ let execute_instruction
     ~(internal : ExecutorInternal.t)
     ~ram
     ~(random_state : _ Xor_shift.O.t)
+    (inputs : _ I.t)
   =
-  let open Always in
+  let open Always in 
+  let draw_enable = reg_false () in
+  let draw_implementation, draw_wiring =
+    Main_memory.create_with_in_circuit ram ~f:(fun ~input ->
+        let i = internal.i.value in
+        let x = internal.opcode_first_register.value in
+        let y = internal.opcode_second_register.value  in
+        let n = internal.opcode_final_nibble in
+        let o =
+          Draw.create
+            ~spec:(r_sync)
+            { Draw.I.clock = inputs.clock
+            ; clear 
+            ; enable = draw_enable.value
+            ; x
+            ; y
+            ; n
+            ; i
+            ; memory = input
+            }
+        in
+        o, o.memory)
+  in
   let ok = proc [ error <--. 0; done_ <--. 1; state.set_next Fetch_op ] in
   [ in_execute <--. 1
   ; (* This error state will become 0 if any op is matched *)
@@ -467,8 +445,16 @@ let execute_instruction
       ; internal.pc <-- internal.pc.value +:. 2
       ; ok
       ]
-  ; when_ (internal.primary_op ==:. 13) (draw_instruction ~ok ~internal ~ram)
-  ; when_ (internal.primary_op ==:. 14) [ (* TODO: Key press instructions *) internal.pc <-- internal.pc.value +:. 2 ; ok ]
+  ; when_
+      (internal.primary_op ==:. 13)
+      [ draw_enable <--. 1 
+      ; draw_wiring
+      ; ok
+      ; when_ draw_implementation.finished [ internal.pc <-- internal.pc.value +:. 2 ]
+      ]
+  ; when_
+      (internal.primary_op ==:. 14)
+      [ (* TODO: Key press instructions *) internal.pc <-- internal.pc.value +:. 2; ok ]
   ]
 ;;
 
@@ -501,7 +487,8 @@ let create (i : _ I.t) : _ O.t =
               ~ram
               ~random_state
               ~state
-              ~done_ )
+              ~done_
+              i )
         ]
     ]
   in
