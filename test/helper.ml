@@ -33,7 +33,7 @@ let sim_program_rom sim (i : _ I.t) ~rom =
   sim_disable_programming i
 ;;
 
-let _sim_read_addr sim (i : _ I.t) (o : _ O.t) addr =
+let sim_read_addr sim (i : _ I.t) (o : _ O.t) addr =
   i.program := Bits.of_int ~width:(Sized.size `Bit) 1;
   i.program_write_enable := Bits.of_int ~width:(Sized.size `Bit) 0;
   i.program_address := Bits.of_int ~width:(Sized.size `Main_address) addr;
@@ -41,12 +41,42 @@ let _sim_read_addr sim (i : _ I.t) (o : _ O.t) addr =
   Cyclesim.cycle sim;
   Cyclesim.cycle sim;
   Cyclesim.cycle sim;
-  print_s [%message "" ~last_read:(pp o.read_data)]
+  Bits.to_int !(o.read_data)
 ;;
 
-let sim_cycle_not_programming sim (i : _ I.t) (o : _ O.t) =
+let sim_read_memory_range sim (i : _ I.t) (o : _ O.t) start sz =
+  Sequence.range 0 sz
+  |> Sequence.map ~f:(fun idx -> sim_read_addr sim i o (start + idx))
+  |> Sequence.to_array
+;;
+
+let sim_read_framebuffer sim (i : _ I.t) (o : _ O.t) =
+  sim_read_memory_range sim i o C8.Main_memory.ram_size C8.Main_memory.frame_buffer
+;;
+
+let frame_buffer_as_string sim (i : _ I.t) (o : _ O.t) =
+  let frame_buffer = sim_read_framebuffer sim i o in
+  let pixel x y =
+    let y_offset = y * (screen_width / 8) in
+    let x_offset = x / 8 in
+    let bit = Int.shift_left 1 ((x % 8) - 1) in
+    Array.get frame_buffer (y_offset + x_offset) land bit
+  in
+  Sequence.range 0 screen_height
+  |> Sequence.map ~f:(fun y ->
+         Sequence.range 0 screen_height
+         |> Sequence.map ~f:(fun x -> pixel x y)
+         |> Sequence.map ~f:(fun x -> if x <> 0 then "*" else " ")
+         |> Sequence.to_list
+         |> String.concat ~sep:"")
+  |> Sequence.to_list
+  |> String.concat ~sep:"\n"
+;;
+
+let sim_cycle_not_programming sim (i : _ I.t) (o : _ O.t) ~print =
   sim_disable_programming i;
   Cyclesim.cycle sim;
+  if print then (
   print_s
     [%message
       ""
@@ -62,5 +92,5 @@ let sim_cycle_not_programming sim (i : _ I.t) (o : _ O.t) =
         ~executor_i:(pp o.registers.i)
         ~executor_done:(pp o.registers.done_)
         ~executor_error:(pp o.registers.error)
-        ~executor_registers:(List.map o.registers.registers ~f:pp : string list)]
+        ~executor_registers:(List.map o.registers.registers ~f:pp : string list)]) else ()
 ;;

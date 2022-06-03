@@ -5,7 +5,9 @@ open Always
 open Global
 
 let ram_size = 4096
-let frame_buffer = 64 * 32
+
+(* One bit per pixel in a 64x32 display *)
+let frame_buffer = screen_width * screen_height / 8
 
 (** A helper module to wrap wires to read and write from memory in a default structure *)
 

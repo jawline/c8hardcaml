@@ -385,9 +385,10 @@ let draw_instruction ~ok ~(internal : ExecutorInternal.t) ~(ram : Main_memory.t)
   let step = Variable.reg ~enable:vdd ~width:(Sized.size `Address) r_sync in
   let framebuffer_address =
     let step_value_as_address = uresize step.value (Sized.size `Main_address) in
-    (* Shift right by 5 to multiply by 32, the width of a row *)
-    let row_offset = sll (y +: step_value_as_address) 5 in
-    let framebuffer_offset = x +: row_offset in
+    (* Shifting y left by 3 is the same as multiply it by screen_width / 8 *)
+    let row_offset = sll (y +: step_value_as_address) 3 in
+    (* Shifting x right by three is the same as dividing it by 8 *)
+    let framebuffer_offset = srl x 3 +: row_offset in
     framebuffer_offset +:. ram.framebuffer_start
   in
   let read_step =
@@ -467,6 +468,7 @@ let execute_instruction
       ; ok
       ]
   ; when_ (internal.primary_op ==:. 13) (draw_instruction ~ok ~internal ~ram)
+  ; when_ (internal.primary_op ==:. 14) [ (* TODO: Key press instructions *) internal.pc <-- internal.pc.value +:. 2 ; ok ]
   ]
 ;;
 
