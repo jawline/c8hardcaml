@@ -3,28 +3,25 @@ open! Hardcaml
 open! Signal
 open Global
 
-(** An implementation of the draw instruction in hardware. We cycle through
-    i to i + n writing the bits under I to the frame buffer. Every other cycle
-    we read the current state of the frame buffer so that we can test collision
-    until (2N) cycles has occured (one cycle to read the framebuffer and one
-    to read I). *)
+(** An implementation of fetch that takes 2 cycles
+    to read a 16-bit opcode from main memory.
 
-module Draw_state = struct
-  type t =
-    | Read
-    | Write
-  [@@deriving sexp_of, compare, enumerate]
-end
+    When in_fetch is set fetch_cycle (a two bit counter)
+    is incremented and read address is set to the
+    program counter or program_counter + 1 depending
+    on step.
+
+    If step is one then finished is set which will begin
+    opcode execution and [opcode] will be set to
+    the correct opcode to execute.
+    *)
 
 module I = struct
   type 'a t =
     { clock : 'a [@bits 1]
     ; clear : 'a [@bits 1]
-    ; enable : 'a [@bits 1]
-    ; x : 'a [@bits 8]
-    ; y : 'a [@bits 8]
-    ; n : 'a [@bits 8]
-    ; i : 'a [@bits 16]
+    ; program_counter : 'a [@bits 12]
+    ; in_fetch : 'a [@bits 1]
     ; memory : 'a Main_memory.In_circuit.I.t
     }
   [@@deriving sexp_of, hardcaml]
@@ -33,6 +30,7 @@ end
 module O = struct
   type 'a t =
     { finished : 'a [@bits 1]
+    ; opcode : 'a [@bits 16]
     ; memory : 'a Main_memory.In_circuit.O.t
     }
   [@@deriving sexp_of, hardcaml]
@@ -41,51 +39,31 @@ end
 let create ~spec (i : _ I.t) =
   let open Always in
   let open Variable in
-  (* TODO: Collision bit *)
-  (* TODO: Test this instruction *)
-  let state = State_machine.create (module Draw_state) ~enable:vdd spec in
-  let x = to_main_addr i.x in
-  let y = to_main_addr i.y in
-  let n = to_addr i.n in
-  let i_register = i.i in
-  let finished = wire ~default:(Signal.of_int ~width:1 0) in
   let write_enable = wire ~default:(Signal.of_int ~width:1 0) in
   let write_address = wire ~default:(Signal.of_int ~width:(Sized.size `Main_address) 0) in
   let write_data = wire ~default:(Signal.of_int ~width:(Sized.size `Byte) 0) in
   let read_address = wire ~default:(Signal.of_int ~width:(Sized.size `Main_address) 0) in
-  (* Step calculates the current depth into the draw operation *)
-  let step = Variable.reg ~enable:vdd ~width:(Sized.size `Address) spec in
-  let framebuffer_address =
-    let step_value_as_address = to_main_addr step.value in
-    (* Shifting y left by 3 is the same as multiply it by screen_width / 8 *)
-    let row_offset = sll (y +: step_value_as_address) 3 in
-    (* Shifting x right by three is the same as dividing it by 8 *)
-    let framebuffer_offset = srl x 3 +: row_offset in
-    framebuffer_offset +:. Main_memory.framebuffer_start
+  let fetch_cycle = Variable.reg ~enable:vdd ~width:2 spec in
+  let op_first = Variable.reg ~enable:vdd ~width:8 spec in
+  let op = concat_msb [ op_first.value; i.memory.read_data ] in
+  (* Set up a read of the first byte *)
+  let first_cycle = proc [ read_address <-- i.program_counter ] in
+  (* Store the first read byte and set up the next read *)
+  let second_cycle =
+    proc [ op_first <-- i.memory.read_data; read_address <-- i.program_counter +:. 1 ]
   in
-  let read_step =
-    [ read_address <-- to_main_addr (i_register +: step.value); state.set_next Write ]
+  let fetch_logic =
+    proc
+      [ (* Visible on the next cycle *)
+        fetch_cycle <-- fetch_cycle.value +:. 1
+      ; when_ (fetch_cycle.value ==:. 0) [ first_cycle ]
+      ; when_ (fetch_cycle.value ==:. 1) [ second_cycle ]
+      ; when_ (fetch_cycle.value ==:. 2) [ fetch_cycle <--. 0 ]
+      ]
   in
-  let write_step =
-    [ step <-- step.value +:. 1
-    ; write_enable <--. 1
-    ; write_address <-- framebuffer_address
-    ; write_data <-- i.memory.read_data
-    ; state.set_next Read
-    ]
-  in
-  (* TODO: Bits not bytes! *)
-  (* TODO: Collision *)
-  let set_finished_and_reset =
-    proc [ state.set_next Read; step <--. 0; finished <--. 1 ]
-  in
-  let step_draw = proc [ state.switch [ Read, read_step; Write, write_step ] ] in
-  compile
-    [ when_
-        i.enable
-        [ if_ (step.value +:. 1 ==: n) [ set_finished_and_reset ] [ step_draw ] ]
-    ];
-  { O.finished = finished.value
+  compile [ when_ (i.in_fetch ==:. 0) [ fetch_logic ] ];
+  { O.finished = fetch_cycle.value ==:. 2
+  ; opcode = op
   ; memory =
       Main_memory.In_circuit.O.always_create
         ~read_address

@@ -328,7 +328,7 @@ let fetch
   (* On the fourth cycle op will be a concat of the first read and the second *)
   let op = concat_msb [ op_first.value; ram.read_data ] in
   ( [ done_ <--. 0
-    ; when_ (fetch_cycle.value ==:. 0) [ ram.read_address <-- to_main_addr  pc.value ]
+    ; when_ (fetch_cycle.value ==:. 0) [ ram.read_address <-- to_main_addr pc.value ]
     ; when_ (fetch_cycle.value ==:. 1) [ op_first <-- ram.read_data ]
     ; when_
         (fetch_cycle.value ==:. 2)
@@ -374,19 +374,19 @@ let execute_instruction
     ~(random_state : _ Xor_shift.O.t)
     (inputs : _ I.t)
   =
-  let open Always in 
+  let open Always in
   let draw_enable = reg_false () in
   let draw_implementation, draw_wiring =
     Main_memory.create_with_in_circuit ram ~f:(fun ~input ->
         let i = internal.i.value in
         let x = internal.opcode_first_register.value in
-        let y = internal.opcode_second_register.value  in
+        let y = internal.opcode_second_register.value in
         let n = internal.opcode_final_nibble in
         let o =
           Draw.create
-            ~spec:(r_sync)
+            ~spec:r_sync
             { Draw.I.clock = inputs.clock
-            ; clear  = inputs.clear
+            ; clear = inputs.clear
             ; enable = draw_enable.value
             ; x
             ; y
@@ -447,10 +447,10 @@ let execute_instruction
       ]
   ; when_
       (internal.primary_op ==:. 13)
-      [ draw_enable <--. 1 
+      [ draw_enable <--. 1
       ; draw_wiring
       ; error <--. 0
-      ; when_ draw_implementation.finished [ ok ; internal.pc <-- internal.pc.value +:. 2 ]
+      ; when_ draw_implementation.finished [ ok; internal.pc <-- internal.pc.value +:. 2 ]
       ]
   ; when_
       (internal.primary_op ==:. 14)

@@ -19,5 +19,4 @@ let screen_width = 64
 let screen_height = 32
 let to_main_addr addr = uresize addr (Sized.size `Main_address)
 let to_addr addr = uresize addr (Sized.size `Address)
-
 let reg_false () = Always.Variable.wire ~default:(Signal.of_int ~width:1 0)
