@@ -15,6 +15,7 @@ end
 let clock = Signal.input "clock" 1
 let clear = Signal.input "clear" 1
 let r_sync = Reg_spec.create ~clock ~clear ()
+let r_enabled ~enable = Reg_spec.create ~reset:(enable ==:. 0) ~clock ~clear ()
 let screen_width = 64
 let screen_height = 32
 let to_main_addr addr = uresize addr (Sized.size `Main_address)

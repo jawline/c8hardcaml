@@ -77,6 +77,15 @@ let create_with_in_circuit (t : t) ~f =
   output, connect_outputs_to_ram
 ;;
 
+let create_with_in_circuit_just_read (t : t) ~f =
+  let open Always in
+  let output, { In_circuit.O.Just_read.read_address } =
+    f ~input:{ In_circuit.I.read_data = t.read_data }
+  in
+  let connect_outputs_to_ram = proc [ t.read_address <-- read_address ] in
+  output, connect_outputs_to_ram
+;;
+
 let machine_ram ~write_enable ~write_address ~write_data ~read_address =
   let read_ports =
     Ram.create

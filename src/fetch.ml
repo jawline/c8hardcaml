@@ -4,17 +4,7 @@ open! Signal
 open Global
 
 (** An implementation of fetch that takes 2 cycles
-    to read a 16-bit opcode from main memory.
-
-    When in_fetch is set fetch_cycle (a two bit counter)
-    is incremented and read address is set to the
-    program counter or program_counter + 1 depending
-    on step.
-
-    If step is one then finished is set which will begin
-    opcode execution and [opcode] will be set to
-    the correct opcode to execute.
-    *)
+    to read a 16-bit opcode from main memory. *)
 
 module I = struct
   type 'a t =
@@ -40,9 +30,10 @@ end
 let create ~spec (i : _ I.t) =
   let open Always in
   let open Variable in
-  let read_address = reg ~enable:vdd ~width:16 spec in
-  let fetch_cycle = Variable.reg ~enable:vdd ~width:2 spec in
-  let op_first = Variable.reg ~enable:vdd ~width:8 spec in
+  let read_address = wire ~default:(Signal.of_int ~width:16 0) in
+  let finished = wire ~default:(Signal.of_int ~width:1 0) in
+  let fetch_cycle = reg ~enable:vdd ~width:2 spec in
+  let op_first = reg ~enable:vdd ~width:8 spec in
   let op = concat_msb [ op_first.value; i.memory.read_data ] in
   (* Set up a read of the first byte *)
   let first_cycle = proc [ read_address <-- to_main_addr i.program_counter ] in
@@ -55,14 +46,16 @@ let create ~spec (i : _ I.t) =
   in
   let fetch_logic =
     proc
-      [ (* Visible on the next cycle *)
-        when_ (fetch_cycle.value ==:. 0) [ first_cycle; fetch_cycle <--. 1 ]
+      [ when_
+          (fetch_cycle.value ==:. 0)
+          [ first_cycle; fetch_cycle <--. 1; finished <--. 0 ]
       ; when_ (fetch_cycle.value ==:. 1) [ second_cycle; fetch_cycle <--. 2 ]
-      ; when_ (fetch_cycle.value ==:. 2) [ fetch_cycle <--. 0 ]
+      ; when_ (fetch_cycle.value ==:. 2) [ finished <--. 1; fetch_cycle <--. 0 ]
       ]
   in
-  compile [ when_ (i.in_fetch ==:. 1) [ fetch_logic ] ];
-  { O.finished = fetch_cycle.value ==:. 0
+  compile
+    [ if_ (i.in_fetch ==:. 1) [ fetch_logic ] [ fetch_cycle <--. 0; finished <--. 0 ] ];
+  { O.finished = finished.value
   ; fetch_cycle = fetch_cycle.value
   ; opcode = op
   ; memory = Main_memory.In_circuit.O.Just_read.always_create ~read_address
@@ -110,18 +103,18 @@ module Test = struct
     [%expect
       {|
        Inputs: PC: 0 in fetch 0 read data 0
-       Finished: 1 Fetch_cycle: 0 Opcode: 0 Read_address: 0
+       Finished: 0 Fetch_cycle: 0 Opcode: 0 Read_address: 0
        Inputs: PC: 0 in fetch 0 read data 0
-       Finished: 1 Fetch_cycle: 0 Opcode: 0 Read_address: 0 |}];
+       Finished: 0 Fetch_cycle: 0 Opcode: 0 Read_address: 0 |}];
     set_pc i 543;
     cycle ();
     cycle ();
     [%expect
       {|
        Inputs: PC: 543 in fetch 0 read data 0
-       Finished: 1 Fetch_cycle: 0 Opcode: 0 Read_address: 0
+       Finished: 0 Fetch_cycle: 0 Opcode: 0 Read_address: 0
        Inputs: PC: 543 in fetch 0 read data 0
-       Finished: 1 Fetch_cycle: 0 Opcode: 0 Read_address: 0 |}];
+       Finished: 0 Fetch_cycle: 0 Opcode: 0 Read_address: 0 |}];
     printf "Pre-fetch-enabled\n";
     print_state i o;
     printf "Post-fetch-enabled\n";
@@ -135,14 +128,14 @@ module Test = struct
       {|
        Pre-fetch-enabled
        Inputs: PC: 543 in fetch 0 read data 0
-       Finished: 1 Fetch_cycle: 0 Opcode: 0 Read_address: 0
+       Finished: 0 Fetch_cycle: 0 Opcode: 0 Read_address: 0
        Post-fetch-enabled
        Inputs: PC: 543 in fetch 1 read data 0
-       Finished: 0 Fetch_cycle: 1 Opcode: 0 Read_address: 543
+       Finished: 0 Fetch_cycle: 1 Opcode: 0 Read_address: 544
        Inputs: PC: 543 in fetch 1 read data 1
-       Finished: 0 Fetch_cycle: 2 Opcode: 101 Read_address: 544
+       Finished: 1 Fetch_cycle: 2 Opcode: 101 Read_address: 0
        Inputs: PC: 543 in fetch 1 read data 2
-       Finished: 1 Fetch_cycle: 0 Opcode: 102 Read_address: 544 |}];
+       Finished: 0 Fetch_cycle: 0 Opcode: 102 Read_address: 543 |}];
     cycle ();
     set_read i 3;
     cycle ();
@@ -151,10 +144,10 @@ module Test = struct
     [%expect
       {|
        Inputs: PC: 543 in fetch 1 read data 2
-       Finished: 0 Fetch_cycle: 1 Opcode: 102 Read_address: 543
+       Finished: 0 Fetch_cycle: 1 Opcode: 102 Read_address: 544
        Inputs: PC: 543 in fetch 1 read data 3
-       Finished: 0 Fetch_cycle: 2 Opcode: 303 Read_address: 544
+       Finished: 1 Fetch_cycle: 2 Opcode: 303 Read_address: 0
        Inputs: PC: 543 in fetch 1 read data 4
-       Finished: 1 Fetch_cycle: 0 Opcode: 304 Read_address: 544 |}]
+       Finished: 0 Fetch_cycle: 0 Opcode: 304 Read_address: 543 |}]
   ;;
 end

@@ -125,11 +125,11 @@ module Test = struct
     Raised at Base__Error.raise in file "src/error.ml" (inlined), line 9, characters 14-30
     Called from Base__Error.raise_s in file "src/error.ml", line 10, characters 19-40
     Called from Hardcaml__Comb.Make.(+:) in file "src/comb.ml", line 491, characters 4-40
-    Called from C8__Draw.create in file "src/draw.ml", line 68, characters 37-63
+    Called from C8__Draw.create in file "src/draw.ml", line 67, characters 36-62
     Called from Hardcaml__Circuit.With_interface.create_exn in file "src/circuit.ml", line 380, characters 18-30
     Called from Hardcaml__Cyclesim.With_interface.create in file "src/cyclesim.ml", line 112, characters 18-81
-    Called from C8__Draw.Test.test in file "src/draw.ml", line 96, characters 14-52
-    Called from C8__Draw.Test.(fun) in file "src/draw.ml", line 104, characters 4-21
+    Called from C8__Draw.Test.test in file "src/draw.ml", line 103, characters 14-52
+    Called from C8__Draw.Test.(fun) in file "src/draw.ml", line 111, characters 4-21
     Called from Expect_test_collector.Make.Instance_io.exec in file "collector/expect_test_collector.ml", line 262, characters 12-19 |}]
   ;;
 end
