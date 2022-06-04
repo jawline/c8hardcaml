@@ -9,6 +9,7 @@ module Sized = struct
     | `Address -> 12
     | `Main_address -> 16
     | `Byte -> 8
+    | `Opcode -> 16
   ;;
 end
 

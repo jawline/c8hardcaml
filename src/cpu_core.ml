@@ -95,7 +95,6 @@ module ExecutorInternal = struct
     { pc : Always.Variable.t
     ; i : Always.Variable.t
     ; sp : Always.Variable.t
-    ; executing_opcode : Always.Variable.t
     ; (* The first nibble of the executing opcode *)
       primary_op : Signal.t
     ; registers : Always.Variable.t list
@@ -117,33 +116,31 @@ module ExecutorInternal = struct
     ; opcode_second_register_9bit : Signal.t
     }
 
-  let create () =
+  let create ~executing_opcode () =
     let open Always in
     let open Variable in
     let state = State_machine.create (module States) ~enable:vdd r_sync in
     let pc = reg ~enable:vdd ~width:12 r_sync in
     let i = reg ~enable:vdd ~width:12 r_sync in
     let sp = reg ~enable:vdd ~width:32 r_sync in
-    let executing_opcode = reg ~enable:vdd ~width:16 r_sync in
-    let primary_op = select executing_opcode.value 15 12 in
+    let primary_op = select executing_opcode 15 12 in
     let registers = List.init 16 ~f:(fun _ -> reg ~enable:vdd ~width:8 r_sync) in
     let register_zero = List.nth_exn registers 0x0 in
     let flag_register = List.nth_exn registers 0xF in
-    let opcode_address = select executing_opcode.value 11 0 in
-    let opcode_immediate = select executing_opcode.value 7 0 in
-    let opcode_final_nibble = select executing_opcode.value 3 0 in
+    let opcode_address = select executing_opcode 11 0 in
+    let opcode_immediate = select executing_opcode 7 0 in
+    let opcode_final_nibble = select executing_opcode 3 0 in
     let opcode_first_register =
-      TargetRegister.create ~registers (select executing_opcode.value 11 8)
+      TargetRegister.create ~registers (select executing_opcode 11 8)
     in
     let opcode_second_register =
-      TargetRegister.create ~registers (select executing_opcode.value 7 4)
+      TargetRegister.create ~registers (select executing_opcode 7 4)
     in
     let opcode_first_register_9bit = uresize opcode_first_register.value 9 in
     let opcode_second_register_9bit = uresize opcode_second_register.value 9 in
     { pc
     ; i
     ; sp
-    ; executing_opcode
     ; primary_op
     ; registers
     ; register_zero
@@ -444,11 +441,14 @@ let create (i : _ I.t) : _ O.t =
     Xor_shift.create
       { Xor_shift.I.clock = i.clock; clear = i.clear; seed = random_state_seed.value }
   in
+  let executing_opcode =
+    Immediate_register.create ~spec:r_sync ~width:(Sized.size `Opcode)
+  in
   let error = reg ~enable:vdd ~width:8 r_sync in
   let done_ = reg ~enable:vdd ~width:1 r_sync in
   let in_execute = wire ~default:(Signal.of_int ~width:1 0) in
   let in_fetch = wire ~default:(Signal.of_int ~width:1 0) in
-  let internal = ExecutorInternal.create () in
+  let internal = ExecutorInternal.create ~executing_opcode:executing_opcode.value () in
   let state = internal.state in
   let fetch, fetch_wiring =
     Main_memory.create_with_in_circuit_just_read ram ~f:(fun ~input ->
@@ -472,7 +472,10 @@ let create (i : _ I.t) : _ O.t =
             ; in_fetch <--. 1
             ; when_
                 (fetch.finished ==:. 1)
-                [ internal.executing_opcode <-- fetch.opcode; state.set_next Execute ]
+                [ Immediate_register.(executing_opcode <-- fetch.opcode)
+                ; in_execute <--. 1
+                ; state.set_next Execute
+                ]
             ] )
         ; Execute, [ in_execute <--. 1 ]
         ]
@@ -488,7 +491,7 @@ let create (i : _ I.t) : _ O.t =
   ; write_data = ram.write_data.value
   ; read_data = ram.read_data
   ; read_address = ram.read_address.value
-  ; op = internal.executing_opcode.value
+  ; op = executing_opcode.value
   ; working_op = fetch.opcode
   ; registers =
       { Registers.pc = internal.pc.value
