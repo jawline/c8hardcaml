@@ -16,6 +16,14 @@ module In_circuit = struct
   end
 
   module O = struct
+    module Just_read = struct
+      type 'a t = { read_address : 'a [@bits 16] } [@@deriving sexp_of, hardcaml]
+
+      let always_create ~(read_address : Always.Variable.t) =
+        { read_address = read_address.value }
+      ;;
+    end
+
     type 'a t =
       { read_address : 'a [@bits 16]
       ; write_enable : 'a [@bits 1]

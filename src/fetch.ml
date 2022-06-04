@@ -30,8 +30,9 @@ end
 module O = struct
   type 'a t =
     { finished : 'a [@bits 1]
+    ; fetch_cycle : 'a [@bits 2]
     ; opcode : 'a [@bits 16]
-    ; memory : 'a Main_memory.In_circuit.O.t
+    ; memory : 'a Main_memory.In_circuit.O.Just_read.t
     }
   [@@deriving sexp_of, hardcaml]
 end
@@ -39,75 +40,121 @@ end
 let create ~spec (i : _ I.t) =
   let open Always in
   let open Variable in
-  let write_enable = wire ~default:(Signal.of_int ~width:1 0) in
-  let write_address = wire ~default:(Signal.of_int ~width:(Sized.size `Main_address) 0) in
-  let write_data = wire ~default:(Signal.of_int ~width:(Sized.size `Byte) 0) in
-  let read_address = wire ~default:(Signal.of_int ~width:(Sized.size `Main_address) 0) in
+  let read_address = reg ~enable:vdd ~width:16 spec in
   let fetch_cycle = Variable.reg ~enable:vdd ~width:2 spec in
   let op_first = Variable.reg ~enable:vdd ~width:8 spec in
   let op = concat_msb [ op_first.value; i.memory.read_data ] in
   (* Set up a read of the first byte *)
-  let first_cycle = proc [ read_address <-- i.program_counter ] in
+  let first_cycle = proc [ read_address <-- to_main_addr i.program_counter ] in
   (* Store the first read byte and set up the next read *)
   let second_cycle =
-    proc [ op_first <-- i.memory.read_data; read_address <-- i.program_counter +:. 1 ]
+    proc
+      [ op_first <-- i.memory.read_data
+      ; read_address <-- to_main_addr (i.program_counter +:. 1)
+      ]
   in
   let fetch_logic =
     proc
       [ (* Visible on the next cycle *)
-        fetch_cycle <-- fetch_cycle.value +:. 1
-      ; when_ (fetch_cycle.value ==:. 0) [ first_cycle ]
-      ; when_ (fetch_cycle.value ==:. 1) [ second_cycle ]
+        when_ (fetch_cycle.value ==:. 0) [ first_cycle; fetch_cycle <--. 1 ]
+      ; when_ (fetch_cycle.value ==:. 1) [ second_cycle; fetch_cycle <--. 2 ]
       ; when_ (fetch_cycle.value ==:. 2) [ fetch_cycle <--. 0 ]
       ]
   in
-  compile [ when_ (i.in_fetch ==:. 0) [ fetch_logic ] ];
-  { O.finished = fetch_cycle.value ==:. 2
+  compile [ when_ (i.in_fetch ==:. 1) [ fetch_logic ] ];
+  { O.finished = fetch_cycle.value ==:. 0
+  ; fetch_cycle = fetch_cycle.value
   ; opcode = op
-  ; memory =
-      Main_memory.In_circuit.O.always_create
-        ~read_address
-        ~write_enable
-        ~write_address
-        ~write_data
+  ; memory = Main_memory.In_circuit.O.Just_read.always_create ~read_address
   }
 ;;
 
 module Test = struct
   let cycle sim (_o : _ O.t) = Cyclesim.cycle sim
 
-  let test ~cycles:_ =
+  let test () =
     let module Simulator = Cyclesim.With_interface (I) (O) in
     let sim = Simulator.create (create ~spec:r_sync) in
-    let _inputs : _ I.t = Cyclesim.inputs sim in
-    let _outputs : _ O.t = Cyclesim.outputs sim in
-    (* TODO: Draw tests *)
-    ()
+    let inputs : _ I.t = Cyclesim.inputs sim in
+    let outputs : _ O.t = Cyclesim.outputs sim in
+    inputs, outputs, sim
+  ;;
+
+  let set_pc (i : _ I.t) v = i.program_counter := Bits.of_int ~width:12 v
+  let set_in_fetch (i : _ I.t) = i.in_fetch := Bits.of_int ~width:1 1
+  let set_read (i : _ I.t) v = i.memory.read_data := Bits.of_int ~width:8 v
+  let to_int v = Bits.to_int !v
+
+  let print_state (i : _ I.t) (o : _ O.t) =
+    printf
+      "Inputs: PC: %i in fetch %i read data %i\n"
+      (to_int i.program_counter)
+      (to_int i.in_fetch)
+      (to_int i.memory.read_data);
+    printf
+      "Finished: %i Fetch_cycle: %i Opcode: %x Read_address: %i\n"
+      (to_int o.finished)
+      (to_int o.fetch_cycle)
+      (Bits.to_int !(o.opcode))
+      (Bits.to_int !(o.memory.read_address))
   ;;
 
   let%expect_test "seed and cycle" =
-    test ~cycles:1000;
-    [%expect.unreachable]
-    [@@expect.uncaught_exn
+    let i, o, sim = test () in
+    let cycle () =
+      Cyclesim.cycle sim;
+      print_state i o
+    in
+    cycle ();
+    cycle ();
+    [%expect
       {|
-    (* CR expect_test_collector: This test expectation appears to contain a backtrace.
-       This is strongly discouraged as backtraces are fragile.
-       Please change this test to not include a backtrace. *)
-
-    ("[+:] got inputs of different widths"
-      ((wire (width 16) (data_in i))
-        (register (width 12)
-          ((clock clock) (clock_edge Rising) (clear clear) (clear_level High)
-            (clear_to 0x000) (enable 0b1))
-          (data_in wire))))
-    Raised at Base__Error.raise in file "src/error.ml" (inlined), line 9, characters 14-30
-    Called from Base__Error.raise_s in file "src/error.ml", line 10, characters 19-40
-    Called from Hardcaml__Comb.Make.(+:) in file "src/comb.ml", line 491, characters 4-40
-    Called from C8__Draw.create in file "src/draw.ml", line 68, characters 37-63
-    Called from Hardcaml__Circuit.With_interface.create_exn in file "src/circuit.ml", line 380, characters 18-30
-    Called from Hardcaml__Cyclesim.With_interface.create in file "src/cyclesim.ml", line 112, characters 18-81
-    Called from C8__Draw.Test.test in file "src/draw.ml", line 96, characters 14-52
-    Called from C8__Draw.Test.(fun) in file "src/draw.ml", line 104, characters 4-21
-    Called from Expect_test_collector.Make.Instance_io.exec in file "collector/expect_test_collector.ml", line 262, characters 12-19 |}]
+       Inputs: PC: 0 in fetch 0 read data 0
+       Finished: 1 Fetch_cycle: 0 Opcode: 0 Read_address: 0
+       Inputs: PC: 0 in fetch 0 read data 0
+       Finished: 1 Fetch_cycle: 0 Opcode: 0 Read_address: 0 |}];
+    set_pc i 543;
+    cycle ();
+    cycle ();
+    [%expect
+      {|
+       Inputs: PC: 543 in fetch 0 read data 0
+       Finished: 1 Fetch_cycle: 0 Opcode: 0 Read_address: 0
+       Inputs: PC: 543 in fetch 0 read data 0
+       Finished: 1 Fetch_cycle: 0 Opcode: 0 Read_address: 0 |}];
+    printf "Pre-fetch-enabled\n";
+    print_state i o;
+    printf "Post-fetch-enabled\n";
+    set_in_fetch i;
+    cycle ();
+    set_read i 1;
+    cycle ();
+    set_read i 2;
+    cycle ();
+    [%expect
+      {|
+       Pre-fetch-enabled
+       Inputs: PC: 543 in fetch 0 read data 0
+       Finished: 1 Fetch_cycle: 0 Opcode: 0 Read_address: 0
+       Post-fetch-enabled
+       Inputs: PC: 543 in fetch 1 read data 0
+       Finished: 0 Fetch_cycle: 1 Opcode: 0 Read_address: 543
+       Inputs: PC: 543 in fetch 1 read data 1
+       Finished: 0 Fetch_cycle: 2 Opcode: 101 Read_address: 544
+       Inputs: PC: 543 in fetch 1 read data 2
+       Finished: 1 Fetch_cycle: 0 Opcode: 102 Read_address: 544 |}];
+    cycle ();
+    set_read i 3;
+    cycle ();
+    set_read i 4;
+    cycle ();
+    [%expect
+      {|
+       Inputs: PC: 543 in fetch 1 read data 2
+       Finished: 0 Fetch_cycle: 1 Opcode: 102 Read_address: 543
+       Inputs: PC: 543 in fetch 1 read data 3
+       Finished: 0 Fetch_cycle: 2 Opcode: 303 Read_address: 544
+       Inputs: PC: 543 in fetch 1 read data 4
+       Finished: 1 Fetch_cycle: 0 Opcode: 304 Read_address: 544 |}]
   ;;
 end
