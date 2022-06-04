@@ -41,6 +41,7 @@ end
 module O = struct
   type 'a t =
     { in_execute : 'a [@bits 1]
+    ; in_fetch : 'a [@bits 1]
     ; write_enable : 'a [@bits 1]
     ; write_address : 'a [@bits 16]
     ; write_data : 'a [@bits 8]
@@ -49,6 +50,8 @@ module O = struct
     ; op : 'a [@bits 16]
     ; working_op : 'a [@bits 16]
     ; registers : 'a Registers.t
+    ; fetch_finished : 'a [@bits 1]
+    ; fetch_cycle : 'a [@bits 2]
     }
   [@@deriving sexp_of, hardcaml]
 end
@@ -445,7 +448,7 @@ let create (i : _ I.t) : _ O.t =
     Immediate_register.create ~spec:r_sync ~width:(Sized.size `Opcode)
   in
   let error = reg ~enable:vdd ~width:8 r_sync in
-  let done_ = reg ~enable:vdd ~width:1 r_sync in
+  let done_ = reg_false () in
   let in_execute = wire ~default:(Signal.of_int ~width:1 0) in
   let in_fetch = wire ~default:(Signal.of_int ~width:1 0) in
   let internal = ExecutorInternal.create ~executing_opcode:executing_opcode.value () in
@@ -467,16 +470,16 @@ let create (i : _ I.t) : _ O.t =
   let main_execution =
     [ state.switch
         [ Startup, startup ~random_state_seed ~internal ~state
-        ; ( Fetch_op
-          , [ fetch_wiring
-            ; in_fetch <--. 1
-            ; when_
-                (fetch.finished ==:. 1)
-                [ Immediate_register.(executing_opcode <-- fetch.opcode)
-                ; in_execute <--. 1
-                ; state.set_next Execute
-                ]
-            ] )
+        ; Fetch_op, [ 
+         fetch_wiring
+         ; in_fetch <--. 1 
+        ; when_
+            (fetch.finished ==:. 1)
+            [ Immediate_register.(executing_opcode <-- fetch.opcode)
+            ; in_execute <--. 1
+            ; state.set_next Execute
+            ]
+        ]
         ; Execute, [ in_execute <--. 1 ]
         ]
     ; when_
@@ -486,6 +489,7 @@ let create (i : _ I.t) : _ O.t =
   in
   compile [ if_ (i.program ==:. 1) (programming_mode ~internal ~ram i) main_execution ];
   { O.in_execute = in_execute.value
+  ; in_fetch = in_fetch.value
   ; write_enable = ram.write_enable.value
   ; write_address = ram.write_address.value
   ; write_data = ram.write_data.value
@@ -501,5 +505,7 @@ let create (i : _ I.t) : _ O.t =
       ; error = error.value
       ; registers = List.map internal.registers ~f:(fun register -> register.value)
       }
+      ; fetch_cycle = fetch.fetch_cycle ;
+      fetch_finished = fetch.finished
   }
 ;;

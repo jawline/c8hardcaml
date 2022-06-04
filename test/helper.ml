@@ -77,22 +77,6 @@ let sim_cycle_not_programming sim (i : _ I.t) (o : _ O.t) ~print =
   sim_disable_programming i;
   Cyclesim.cycle sim;
   if print
-  then
-    print_s
-      [%message
-        ""
-          ~op:(ppb o.op)
-          ~working_op:(ppb o.working_op)
-          ~read_address:(pp o.read_address)
-          ~read_data:(pp o.write_data)
-          ~write_enable:(pp o.write_enable)
-          ~write_address:(pp o.write_address)
-          ~write_data:(pp o.write_data)
-          ~in_execute:(pp o.in_execute)
-          ~executor_pc:(pp o.registers.pc)
-          ~executor_i:(pp o.registers.i)
-          ~executor_done:(pp o.registers.done_)
-          ~executor_error:(pp o.registers.error)
-          ~executor_registers:(List.map o.registers.registers ~f:pp : string list)]
+  then print_s [%sexp (o : Bits.t ref O.t) ]
   else ()
 ;;
