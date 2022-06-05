@@ -52,6 +52,7 @@ module O = struct
     ; registers : 'a Registers.t
     ; fetch_finished : 'a [@bits 1]
     ; fetch_cycle : 'a [@bits 2]
+    ; last_op : 'a [@bits 16]
     }
   [@@deriving sexp_of, hardcaml]
 end
@@ -453,6 +454,7 @@ let create (i : _ I.t) : _ O.t =
   let in_fetch = wire ~default:(Signal.of_int ~width:1 0) in
   let internal = ExecutorInternal.create ~executing_opcode:executing_opcode.value () in
   let state = internal.state in
+  let last_op = reg ~enable:vdd ~width:16 r_sync in
   let fetch, fetch_wiring =
     Main_memory.create_with_in_circuit_just_read ram ~f:(fun ~input ->
         let o =
@@ -470,21 +472,23 @@ let create (i : _ I.t) : _ O.t =
   let main_execution =
     [ state.switch
         [ Startup, startup ~random_state_seed ~internal ~state
-        ; Fetch_op, [ 
-         fetch_wiring
-         ; in_fetch <--. 1 
-        ; when_
-            (fetch.finished ==:. 1)
-            [ Immediate_register.(executing_opcode <-- fetch.opcode)
-            ; in_execute <--. 1
-            ; state.set_next Execute
-            ]
-        ]
+        ; ( Fetch_op
+          , [ fetch_wiring
+            ; in_fetch <--. 1
+            ; when_
+                (fetch.finished ==:. 1)
+                [ Immediate_register.(executing_opcode <-- fetch.opcode)
+                ; in_execute <--. 1
+                ; state.set_next Execute
+                ]
+            ] )
         ; Execute, [ in_execute <--. 1 ]
         ]
     ; when_
         (in_execute.value ==:. 1)
-        [ execute_instruction ~error ~internal ~ram ~random_state ~state ~done_ i ]
+        [ last_op <-- executing_opcode.value
+        ; execute_instruction ~error ~internal ~ram ~random_state ~state ~done_ i
+        ]
     ]
   in
   compile [ if_ (i.program ==:. 1) (programming_mode ~internal ~ram i) main_execution ];
@@ -497,6 +501,7 @@ let create (i : _ I.t) : _ O.t =
   ; read_address = ram.read_address.value
   ; op = executing_opcode.value
   ; working_op = fetch.opcode
+  ; last_op = last_op.value
   ; registers =
       { Registers.pc = internal.pc.value
       ; i = internal.i.value
@@ -505,7 +510,7 @@ let create (i : _ I.t) : _ O.t =
       ; error = error.value
       ; registers = List.map internal.registers ~f:(fun register -> register.value)
       }
-      ; fetch_cycle = fetch.fetch_cycle ;
-      fetch_finished = fetch.finished
+  ; fetch_cycle = fetch.fetch_cycle
+  ; fetch_finished = fetch.finished
   }
 ;;

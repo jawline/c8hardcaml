@@ -40,16 +40,20 @@ let test ~opcodes ~stop_when =
   let inputs : _ I.t = Cyclesim.inputs sim in
   let outputs : _ O.t = Cyclesim.outputs sim in
   let rom = make_rom_of_opcodes ~opcodes in
+  List.iter ~f:(printf "%x ") rom;
+  printf "\n";
   sim_program_rom sim inputs ~rom;
   List.iter opcodes ~f:(fun _ ->
       let step () =
-              sim_cycle_not_programming sim inputs outputs ~print:true;
+        sim_cycle_not_programming sim inputs outputs ~print:false;
         stop_when
           (Bits.to_int !(outputs.registers.error))
           (Bits.to_int !(outputs.registers.done_))
       in
       let rec until ~f = if f () then () else until ~f in
       until ~f:step);
+  (* When we stop on done the registers have just been set so run one more cycle so that their new state is reflected in output *)
+  sim_cycle_not_programming sim inputs outputs ~print:false;
   ( !(outputs.registers.pc)
   , !(outputs.registers.error)
   , List.map outputs.registers.registers ~f:(fun register -> !register) )
@@ -70,43 +74,8 @@ let%expect_test "step (enabled)" =
   let pc = Bits.to_int pc in
   Core.print_s [%message (pc : int)];
   [%expect {|
-    ((in_execute 0) (in_fetch 1) (write_enable 0)
-     (write_address 0000000000000000) (write_data 00000000)
-     (read_address 0000000000000000) (read_data 00000000) (op 0000000000000000)
-     (working_op 0000000000000000)
-     (registers
-      ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-       (error 00000000)
-       (registers
-        (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-         00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-       (done_ 0)))
-     (fetch_finished 0) (fetch_cycle 00))
-    ((in_execute 0) (in_fetch 1) (write_enable 0)
-     (write_address 0000000000000000) (write_data 00000000)
-     (read_address 0000000000000001) (read_data 00000000) (op 0000000000000000)
-     (working_op 0000000000000000)
-     (registers
-      ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-       (error 00000000)
-       (registers
-        (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-         00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-       (done_ 0)))
-     (fetch_finished 0) (fetch_cycle 01))
-    ((in_execute 1) (in_fetch 1) (write_enable 0)
-     (write_address 0000000000000000) (write_data 00000000)
-     (read_address 0000000000000000) (read_data 00000000) (op 0000000000000000)
-     (working_op 0000000000000000)
-     (registers
-      ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-       (error 00000000)
-       (registers
-        (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-         00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-       (done_ 1)))
-     (fetch_finished 1) (fetch_cycle 10))
-    (pc 0) |}]
+    0 0
+    (pc 2) |}]
 ;;
 
 let%expect_test "step (jump) to 1024" =
@@ -116,43 +85,8 @@ let%expect_test "step (jump) to 1024" =
   let pc, error = Bits.to_int pc, Bits.to_int error in
   Core.print_s [%message (pc : int) (error : int)];
   [%expect {|
-    ((in_execute 0) (in_fetch 1) (write_enable 0)
-     (write_address 0000000000000000) (write_data 00000000)
-     (read_address 0000000000000000) (read_data 00010100) (op 0000000000000000)
-     (working_op 0000000000010100)
-     (registers
-      ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-       (error 00000000)
-       (registers
-        (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-         00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-       (done_ 0)))
-     (fetch_finished 0) (fetch_cycle 00))
-    ((in_execute 0) (in_fetch 1) (write_enable 0)
-     (write_address 0000000000000000) (write_data 00000000)
-     (read_address 0000000000000001) (read_data 00010100) (op 0000000000000000)
-     (working_op 0000000000010100)
-     (registers
-      ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-       (error 00000000)
-       (registers
-        (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-         00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-       (done_ 0)))
-     (fetch_finished 0) (fetch_cycle 01))
-    ((in_execute 1) (in_fetch 1) (write_enable 0)
-     (write_address 0000000000000000) (write_data 00000000)
-     (read_address 0000000000000000) (read_data 00000000) (op 0001010000000000)
-     (working_op 0001010000000000)
-     (registers
-      ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-       (error 00000000)
-       (registers
-        (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-         00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-       (done_ 1)))
-     (fetch_finished 1) (fetch_cycle 10))
-    ((pc 0) (error 0)) |}]
+    14 0
+    ((pc 1024) (error 0)) |}]
 ;;
 
 let%expect_test "step (jump) to 512" =
@@ -162,43 +96,8 @@ let%expect_test "step (jump) to 512" =
   let pc, error = Bits.to_int pc, Bits.to_int error in
   Core.print_s [%message (pc : int) (error : int)];
   [%expect {|
-    ((in_execute 0) (in_fetch 1) (write_enable 0)
-     (write_address 0000000000000000) (write_data 00000000)
-     (read_address 0000000000000000) (read_data 00010010) (op 0000000000000000)
-     (working_op 0000000000010010)
-     (registers
-      ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-       (error 00000000)
-       (registers
-        (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-         00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-       (done_ 0)))
-     (fetch_finished 0) (fetch_cycle 00))
-    ((in_execute 0) (in_fetch 1) (write_enable 0)
-     (write_address 0000000000000000) (write_data 00000000)
-     (read_address 0000000000000001) (read_data 00010010) (op 0000000000000000)
-     (working_op 0000000000010010)
-     (registers
-      ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-       (error 00000000)
-       (registers
-        (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-         00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-       (done_ 0)))
-     (fetch_finished 0) (fetch_cycle 01))
-    ((in_execute 1) (in_fetch 1) (write_enable 0)
-     (write_address 0000000000000000) (write_data 00000000)
-     (read_address 0000000000000000) (read_data 00000000) (op 0001001000000000)
-     (working_op 0001001000000000)
-     (registers
-      ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-       (error 00000000)
-       (registers
-        (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-         00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-       (done_ 1)))
-     (fetch_finished 1) (fetch_cycle 10))
-    ((pc 0) (error 0)) |}]
+    12 0
+    ((pc 512) (error 0)) |}]
 ;;
 
 let%expect_test "step (jump) to 1" =
@@ -206,43 +105,8 @@ let%expect_test "step (jump) to 1" =
   let pc, error = Bits.to_int pc, Bits.to_int error in
   Core.print_s [%message (pc : int) (error : int)];
   [%expect {|
-    ((in_execute 0) (in_fetch 1) (write_enable 0)
-     (write_address 0000000000000000) (write_data 00000000)
-     (read_address 0000000000000000) (read_data 00010000) (op 0000000000000000)
-     (working_op 0000000000010000)
-     (registers
-      ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-       (error 00000000)
-       (registers
-        (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-         00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-       (done_ 0)))
-     (fetch_finished 0) (fetch_cycle 00))
-    ((in_execute 0) (in_fetch 1) (write_enable 0)
-     (write_address 0000000000000000) (write_data 00000000)
-     (read_address 0000000000000001) (read_data 00010000) (op 0000000000000000)
-     (working_op 0000000000010000)
-     (registers
-      ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-       (error 00000000)
-       (registers
-        (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-         00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-       (done_ 0)))
-     (fetch_finished 0) (fetch_cycle 01))
-    ((in_execute 1) (in_fetch 1) (write_enable 0)
-     (write_address 0000000000000000) (write_data 00000000)
-     (read_address 0000000000000000) (read_data 00000001) (op 0001000000000001)
-     (working_op 0001000000000001)
-     (registers
-      ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-       (error 00000000)
-       (registers
-        (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-         00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-       (done_ 1)))
-     (fetch_finished 1) (fetch_cycle 10))
-    ((pc 0) (error 0)) |}]
+    10 1
+    ((pc 1) (error 0)) |}]
 ;;
 
 let%expect_test "assign V0 to 1" =
@@ -254,45 +118,10 @@ let%expect_test "assign V0 to 1" =
   print_registers ~registers;
   [%expect
     {|
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 01100000) (op 0000000000000000)
-       (working_op 0000000001100000)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000001) (read_data 01100000) (op 0000000000000000)
-       (working_op 0000000001100000)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00000001) (op 0110000000000001)
-       (working_op 0110000000000001)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((pc 0) (error 0))
+      60 1
+      ((pc 2) (error 0))
       (as_strings
-       (V0:00000000 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
+       (V0:00000001 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
         V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
         V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
 ;;
@@ -306,45 +135,10 @@ let%expect_test "assign V1 to 2" =
   print_registers ~registers;
   [%expect
     {|
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 01100001) (op 0000000000000000)
-       (working_op 0000000001100001)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000001) (read_data 01100001) (op 0000000000000000)
-       (working_op 0000000001100001)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00000010) (op 0110000100000010)
-       (working_op 0110000100000010)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((pc 0) (error 0))
+      61 2
+      ((pc 2) (error 0))
       (as_strings
-       (V0:00000000 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
+       (V0:00000000 V1:00000010 V2:00000000 V3:00000000 V4:00000000 V5:00000000
         V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
         V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
 ;;
@@ -358,45 +152,10 @@ let%expect_test "assign V2 to 3" =
   print_registers ~registers;
   [%expect
     {|
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 01100010) (op 0000000000000000)
-       (working_op 0000000001100010)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000001) (read_data 01100010) (op 0000000000000000)
-       (working_op 0000000001100010)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00000011) (op 0110001000000011)
-       (working_op 0110001000000011)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((pc 0) (error 0))
+      62 3
+      ((pc 2) (error 0))
       (as_strings
-       (V0:00000000 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
+       (V0:00000000 V1:00000000 V2:00000011 V3:00000000 V4:00000000 V5:00000000
         V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
         V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
 ;;
@@ -410,46 +169,11 @@ let%expect_test "assign V6 to max_int (255)" =
   print_registers ~registers;
   [%expect
     {|
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 01100110) (op 0000000000000000)
-       (working_op 0000000001100110)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000001) (read_data 01100110) (op 0000000000000000)
-       (working_op 0000000001100110)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 11111111) (op 0110011011111111)
-       (working_op 0110011011111111)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((pc 0) (error 0))
+      66 ff
+      ((pc 2) (error 0))
       (as_strings
        (V0:00000000 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
-        V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
+        V6:11111111 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
         V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
 ;;
 
@@ -464,79 +188,8 @@ let%expect_test "test skip if equal on equal value" =
   print_registers ~registers;
   [%expect
     {|
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 01100000) (op 0000000000000000)
-       (working_op 0000000001100000)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000001) (read_data 01100000) (op 0000000000000000)
-       (working_op 0000000001100000)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00000101) (op 0110000000000101)
-       (working_op 0110000000000101)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000010) (read_data 01100000) (op 0110000000000101)
-       (working_op 0110000001100000)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000101 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000011) (read_data 00110000) (op 0110000000000101)
-       (working_op 0110000000110000)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000101 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00000101) (op 0011000000000101)
-       (working_op 0011000000000101)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000101 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((pc 2) (error 0))
+      60 5 30 5
+      ((pc 6) (error 0))
       (as_strings
        (V0:00000101 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
         V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
@@ -544,6 +197,9 @@ let%expect_test "test skip if equal on equal value" =
 ;;
 
 let%expect_test "test skip if equal on non-equal value" =
+  (* We expect a PC of 4 because the skip path should
+     not be taken and there are 2 (size of 4) preceding
+     instructions. *)
   let pc, error, registers =
     test
       ~opcodes:[ assign_v0_four; skip_if_v0_five ]
@@ -554,79 +210,8 @@ let%expect_test "test skip if equal on non-equal value" =
   print_registers ~registers;
   [%expect
     {|
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 01100000) (op 0000000000000000)
-       (working_op 0000000001100000)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000001) (read_data 01100000) (op 0000000000000000)
-       (working_op 0000000001100000)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00000100) (op 0110000000000100)
-       (working_op 0110000000000100)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000010) (read_data 01100000) (op 0110000000000100)
-       (working_op 0110000001100000)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000100 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000011) (read_data 00110000) (op 0110000000000100)
-       (working_op 0110000000110000)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000100 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00000101) (op 0011000000000101)
-       (working_op 0011000000000101)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000100 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((pc 2) (error 0))
+      60 4 30 5
+      ((pc 4) (error 0))
       (as_strings
        (V0:00000100 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
         V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
@@ -634,6 +219,9 @@ let%expect_test "test skip if equal on non-equal value" =
 ;;
 
 let%expect_test "test skip if not equal on equal value" =
+  (* We expect a PC of 4 because the skip path should
+     not be taken and there are 2 (size of 4) preceding
+     instructions. *)
   let pc, error, registers =
     test
       ~opcodes:[ assign_v0_five; skip_if_v0_not_five ]
@@ -644,79 +232,8 @@ let%expect_test "test skip if not equal on equal value" =
   print_registers ~registers;
   [%expect
     {|
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 01100000) (op 0000000000000000)
-       (working_op 0000000001100000)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000001) (read_data 01100000) (op 0000000000000000)
-       (working_op 0000000001100000)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00000101) (op 0110000000000101)
-       (working_op 0110000000000101)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000010) (read_data 01100000) (op 0110000000000101)
-       (working_op 0110000001100000)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000101 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000011) (read_data 01000000) (op 0110000000000101)
-       (working_op 0110000001000000)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000101 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00000101) (op 0100000000000101)
-       (working_op 0100000000000101)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000101 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((pc 2) (error 0))
+      60 5 40 5
+      ((pc 4) (error 0))
       (as_strings
        (V0:00000101 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
         V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
@@ -724,6 +241,9 @@ let%expect_test "test skip if not equal on equal value" =
 ;;
 
 let%expect_test "test skip if v0 = v1 when v0 = v1" =
+  (* We expect a PC of 8 because the skip path should
+     be taken and there are 3 (size of 6) preceding
+     instructions. *)
   let pc, error, registers =
     test
       ~opcodes:[ assign_v0_five; assign_v1_five; skip_if_v0_eq_v1 ]
@@ -734,115 +254,8 @@ let%expect_test "test skip if v0 = v1 when v0 = v1" =
   print_registers ~registers;
   [%expect
     {|
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 01100000) (op 0000000000000000)
-       (working_op 0000000001100000)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000001) (read_data 01100000) (op 0000000000000000)
-       (working_op 0000000001100000)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00000101) (op 0110000000000101)
-       (working_op 0110000000000101)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000010) (read_data 01100000) (op 0110000000000101)
-       (working_op 0110000001100000)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000101 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000011) (read_data 01100001) (op 0110000000000101)
-       (working_op 0110000001100001)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000101 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00000101) (op 0110000100000101)
-       (working_op 0110000100000101)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000101 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000100) (read_data 01100000) (op 0110000100000101)
-       (working_op 0110000101100000)
-       (registers
-        ((pc 000000000100) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000101 00000101 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000101) (read_data 01010000) (op 0110000100000101)
-       (working_op 0110000101010000)
-       (registers
-        ((pc 000000000100) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000101 00000101 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00010000) (op 0101000000010000)
-       (working_op 0101000000010000)
-       (registers
-        ((pc 000000000100) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000101 00000101 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((pc 4) (error 0))
+      60 5 61 5 50 10
+      ((pc 8) (error 0))
       (as_strings
        (V0:00000101 V1:00000101 V2:00000000 V3:00000000 V4:00000000 V5:00000000
         V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
@@ -850,6 +263,9 @@ let%expect_test "test skip if v0 = v1 when v0 = v1" =
 ;;
 
 let%expect_test "test skip if v0 = v1 when v0 <> v1" =
+  (* We expect a PC of 6 because the skip path should
+     be taken and there are 3 (size of 6) preceding
+     instructions. *)
   let pc, error, registers =
     test
       ~opcodes:[ assign_v0_four; assign_v1_five; skip_if_v0_eq_v1 ]
@@ -860,115 +276,8 @@ let%expect_test "test skip if v0 = v1 when v0 <> v1" =
   print_registers ~registers;
   [%expect
     {|
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 01100000) (op 0000000000000000)
-       (working_op 0000000001100000)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000001) (read_data 01100000) (op 0000000000000000)
-       (working_op 0000000001100000)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00000100) (op 0110000000000100)
-       (working_op 0110000000000100)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000010) (read_data 01100000) (op 0110000000000100)
-       (working_op 0110000001100000)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000100 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000011) (read_data 01100001) (op 0110000000000100)
-       (working_op 0110000001100001)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000100 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00000101) (op 0110000100000101)
-       (working_op 0110000100000101)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000100 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000100) (read_data 01100000) (op 0110000100000101)
-       (working_op 0110000101100000)
-       (registers
-        ((pc 000000000100) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000100 00000101 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000101) (read_data 01010000) (op 0110000100000101)
-       (working_op 0110000101010000)
-       (registers
-        ((pc 000000000100) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000100 00000101 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00010000) (op 0101000000010000)
-       (working_op 0101000000010000)
-       (registers
-        ((pc 000000000100) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000100 00000101 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((pc 4) (error 0))
+      60 4 61 5 50 10
+      ((pc 6) (error 0))
       (as_strings
        (V0:00000100 V1:00000101 V2:00000000 V3:00000000 V4:00000000 V5:00000000
         V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
@@ -984,81 +293,10 @@ let%expect_test "add 5 to v0 twices" =
   print_registers ~registers;
   [%expect
     {|
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 01110000) (op 0000000000000000)
-       (working_op 0000000001110000)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000001) (read_data 01110000) (op 0000000000000000)
-       (working_op 0000000001110000)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00000101) (op 0111000000000101)
-       (working_op 0111000000000101)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000010) (read_data 01110000) (op 0111000000000101)
-       (working_op 0111000001110000)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000101 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000011) (read_data 01110000) (op 0111000000000101)
-       (working_op 0111000001110000)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000101 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00000101) (op 0111000000000101)
-       (working_op 0111000000000101)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000101 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((pc 2) (error 0))
+      70 5 70 5
+      ((pc 4) (error 0))
       (as_strings
-       (V0:00000101 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
+       (V0:00001010 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
         V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
         V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
 ;;
@@ -1072,81 +310,10 @@ let%expect_test "assign 4 to v0 then add 5 to v0" =
   print_registers ~registers;
   [%expect
     {|
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 01100000) (op 0000000000000000)
-       (working_op 0000000001100000)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000001) (read_data 01100000) (op 0000000000000000)
-       (working_op 0000000001100000)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00000100) (op 0110000000000100)
-       (working_op 0110000000000100)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000010) (read_data 01100000) (op 0110000000000100)
-       (working_op 0110000001100000)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000100 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000011) (read_data 01110000) (op 0110000000000100)
-       (working_op 0110000001110000)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000100 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00000101) (op 0111000000000101)
-       (working_op 0111000000000101)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000100 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((pc 2) (error 0))
+      60 4 70 5
+      ((pc 4) (error 0))
       (as_strings
-       (V0:00000100 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
+       (V0:00001001 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
         V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
         V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
 ;;
@@ -1160,81 +327,10 @@ let%expect_test "assign 2 to v1 then assign v0 to v1" =
   print_registers ~registers;
   [%expect
     {|
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 01100001) (op 0000000000000000)
-       (working_op 0000000001100001)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000001) (read_data 01100001) (op 0000000000000000)
-       (working_op 0000000001100001)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00000010) (op 0110000100000010)
-       (working_op 0110000100000010)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000010) (read_data 01100001) (op 0110000100000010)
-       (working_op 0110000101100001)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000010 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000011) (read_data 10000000) (op 0110000100000010)
-       (working_op 0110000110000000)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000010 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00010000) (op 1000000000010000)
-       (working_op 1000000000010000)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000010 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((pc 2) (error 0))
+      61 2 80 10
+      ((pc 4) (error 0))
       (as_strings
-       (V0:00000000 V1:00000010 V2:00000000 V3:00000000 V4:00000000 V5:00000000
+       (V0:00000010 V1:00000010 V2:00000000 V3:00000000 V4:00000000 V5:00000000
         V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
         V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
 ;;
@@ -1250,117 +346,10 @@ let%expect_test "assign 2 to v1 then assign 1 to v0 then or them" =
   print_registers ~registers;
   [%expect
     {|
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 01100001) (op 0000000000000000)
-       (working_op 0000000001100001)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000001) (read_data 01100001) (op 0000000000000000)
-       (working_op 0000000001100001)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00000001) (op 0110000100000001)
-       (working_op 0110000100000001)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000010) (read_data 01100001) (op 0110000100000001)
-       (working_op 0110000101100001)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000001 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000011) (read_data 01100000) (op 0110000100000001)
-       (working_op 0110000101100000)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000001 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00000010) (op 0110000000000010)
-       (working_op 0110000000000010)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000001 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000100) (read_data 01100001) (op 0110000000000010)
-       (working_op 0110000001100001)
-       (registers
-        ((pc 000000000100) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000010 00000001 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000101) (read_data 10000000) (op 0110000000000010)
-       (working_op 0110000010000000)
-       (registers
-        ((pc 000000000100) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000010 00000001 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00010001) (op 1000000000010001)
-       (working_op 1000000000010001)
-       (registers
-        ((pc 000000000100) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000010 00000001 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((pc 4) (error 0))
+      61 1 60 2 80 11
+      ((pc 6) (error 0))
       (as_strings
-       (V0:00000010 V1:00000001 V2:00000000 V3:00000000 V4:00000000 V5:00000000
+       (V0:00000011 V1:00000001 V2:00000000 V3:00000000 V4:00000000 V5:00000000
         V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
         V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
 ;;
@@ -1376,117 +365,10 @@ let%expect_test "assign 2 to v1 then assign 3 to v0 then and them" =
   print_registers ~registers;
   [%expect
     {|
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 01100001) (op 0000000000000000)
-       (working_op 0000000001100001)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000001) (read_data 01100001) (op 0000000000000000)
-       (working_op 0000000001100001)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00000001) (op 0110000100000001)
-       (working_op 0110000100000001)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000010) (read_data 01100001) (op 0110000100000001)
-       (working_op 0110000101100001)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000001 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000011) (read_data 01100000) (op 0110000100000001)
-       (working_op 0110000101100000)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000001 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00000011) (op 0110000000000011)
-       (working_op 0110000000000011)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000001 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000100) (read_data 01100001) (op 0110000000000011)
-       (working_op 0110000001100001)
-       (registers
-        ((pc 000000000100) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000011 00000001 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000101) (read_data 10000000) (op 0110000000000011)
-       (working_op 0110000010000000)
-       (registers
-        ((pc 000000000100) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000011 00000001 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00010010) (op 1000000000010010)
-       (working_op 1000000000010010)
-       (registers
-        ((pc 000000000100) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000011 00000001 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((pc 4) (error 0))
+      61 1 60 3 80 12
+      ((pc 6) (error 0))
       (as_strings
-       (V0:00000011 V1:00000001 V2:00000000 V3:00000000 V4:00000000 V5:00000000
+       (V0:00000001 V1:00000001 V2:00000000 V3:00000000 V4:00000000 V5:00000000
         V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
         V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
 ;;
@@ -1502,117 +384,10 @@ let%expect_test "assign 2 to v1 then assign 3 to v0 then xor them" =
   print_registers ~registers;
   [%expect
     {|
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 01100001) (op 0000000000000000)
-       (working_op 0000000001100001)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000001) (read_data 01100001) (op 0000000000000000)
-       (working_op 0000000001100001)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00000001) (op 0110000100000001)
-       (working_op 0110000100000001)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000010) (read_data 01100001) (op 0110000100000001)
-       (working_op 0110000101100001)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000001 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000011) (read_data 01100000) (op 0110000100000001)
-       (working_op 0110000101100000)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000001 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00000011) (op 0110000000000011)
-       (working_op 0110000000000011)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000001 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000100) (read_data 01100001) (op 0110000000000011)
-       (working_op 0110000001100001)
-       (registers
-        ((pc 000000000100) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000011 00000001 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000101) (read_data 10000000) (op 0110000000000011)
-       (working_op 0110000010000000)
-       (registers
-        ((pc 000000000100) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000011 00000001 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00010011) (op 1000000000010011)
-       (working_op 1000000000010011)
-       (registers
-        ((pc 000000000100) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000011 00000001 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((pc 4) (error 0))
+      61 1 60 3 80 13
+      ((pc 6) (error 0))
       (as_strings
-       (V0:00000011 V1:00000001 V2:00000000 V3:00000000 V4:00000000 V5:00000000
+       (V0:00000010 V1:00000001 V2:00000000 V3:00000000 V4:00000000 V5:00000000
         V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
         V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
 ;;
@@ -1626,81 +401,10 @@ let%expect_test "test random state" =
   print_registers ~registers;
   [%expect
     {|
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 01100001) (op 0000000000000000)
-       (working_op 0000000001100001)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000001) (read_data 01100001) (op 0000000000000000)
-       (working_op 0000000001100001)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00000001) (op 0110000100000001)
-       (working_op 0110000100000001)
-       (registers
-        ((pc 000000000000) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000010) (read_data 01100001) (op 0110000100000001)
-       (working_op 0110000101100001)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000001 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 00))
-      ((in_execute 0) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000011) (read_data 11000001) (op 0110000100000001)
-       (working_op 0110000111000001)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000001 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 0)))
-       (fetch_finished 0) (fetch_cycle 01))
-      ((in_execute 1) (in_fetch 1) (write_enable 0)
-       (write_address 0000000000000000) (write_data 00000000)
-       (read_address 0000000000000000) (read_data 00000000) (op 1100000100000000)
-       (working_op 1100000100000000)
-       (registers
-        ((pc 000000000010) (i 000000000000) (sp 00000000000000000000000000000000)
-         (error 00000000)
-         (registers
-          (00000000 00000001 00000000 00000000 00000000 00000000 00000000 00000000
-           00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000))
-         (done_ 1)))
-       (fetch_finished 1) (fetch_cycle 10))
-      ((pc 2) (error 0))
+      61 1 c1 0
+      ((pc 4) (error 0))
       (as_strings
-       (V0:00000000 V1:00000001 V2:00000000 V3:00000000 V4:00000000 V5:00000000
+       (V0:00000000 V1:11111111 V2:00000000 V3:00000000 V4:00000000 V5:00000000
         V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
         V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
 ;;

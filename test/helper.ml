@@ -76,7 +76,5 @@ let frame_buffer_as_string sim (i : _ I.t) (o : _ O.t) =
 let sim_cycle_not_programming sim (i : _ I.t) (o : _ O.t) ~print =
   sim_disable_programming i;
   Cyclesim.cycle sim;
-  if print
-  then print_s [%sexp (o : Bits.t ref O.t) ]
-  else ()
+  if print then print_s [%sexp (o : Bits.t ref O.t)] else ()
 ;;
