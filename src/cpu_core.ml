@@ -26,18 +26,6 @@ module I = struct
   [@@deriving sexp_of, hardcaml]
 end
 
-module Registers = struct
-  type 'a t =
-    { pc : 'a [@bits 12]
-    ; i : 'a [@bits 12]
-    ; sp : 'a [@bits 32]
-    ; error : 'a [@bits 8]
-    ; registers : 'a list [@length 16] [@bits 8]
-    ; done_ : 'a [@bits 1]
-    }
-  [@@deriving sexp_of, hardcaml]
-end
-
 module O = struct
   type 'a t =
     { in_execute : 'a [@bits 1]
@@ -49,10 +37,12 @@ module O = struct
     ; read_data : 'a [@bits 8]
     ; op : 'a [@bits 16]
     ; working_op : 'a [@bits 16]
-    ; registers : 'a Registers.t
+    ; registers : 'a Registers.In_circuit.t
     ; fetch_finished : 'a [@bits 1]
     ; fetch_cycle : 'a [@bits 2]
     ; last_op : 'a [@bits 16]
+    ; executor_done : 'a [@bits 1]
+    ; executor_error : 'a [@bits 1]
     }
   [@@deriving sexp_of, hardcaml]
 end
@@ -448,7 +438,7 @@ let create (i : _ I.t) : _ O.t =
   let executing_opcode =
     Immediate_register.create ~spec:r_sync ~width:(Sized.size `Opcode)
   in
-  let error = reg ~enable:vdd ~width:8 r_sync in
+  let error = reg ~enable:vdd ~width:1 r_sync in
   let done_ = reg_false () in
   let in_execute = wire ~default:(Signal.of_int ~width:1 0) in
   let in_fetch = wire ~default:(Signal.of_int ~width:1 0) in
@@ -502,12 +492,12 @@ let create (i : _ I.t) : _ O.t =
   ; op = executing_opcode.value
   ; working_op = fetch.opcode
   ; last_op = last_op.value
+  ; executor_done = done_.value
+  ; executor_error = error.value
   ; registers =
-      { Registers.pc = internal.pc.value
+      { Registers.In_circuit.pc = internal.pc.value
       ; i = internal.i.value
       ; sp = internal.sp.value
-      ; done_ = done_.value
-      ; error = error.value
       ; registers = List.map internal.registers ~f:(fun register -> register.value)
       }
   ; fetch_cycle = fetch.fetch_cycle

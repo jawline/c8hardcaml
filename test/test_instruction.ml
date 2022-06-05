@@ -47,15 +47,15 @@ let test ~opcodes ~stop_when =
       let step () =
         sim_cycle_not_programming sim inputs outputs ~print:false;
         stop_when
-          (Bits.to_int !(outputs.registers.error))
-          (Bits.to_int !(outputs.registers.done_))
+          (Bits.to_int !(outputs.executor_error))
+          (Bits.to_int !(outputs.executor_done))
       in
       let rec until ~f = if f () then () else until ~f in
       until ~f:step);
   (* When we stop on done the registers have just been set so run one more cycle so that their new state is reflected in output *)
   sim_cycle_not_programming sim inputs outputs ~print:false;
   ( !(outputs.registers.pc)
-  , !(outputs.registers.error)
+  , !(outputs.executor_error)
   , List.map outputs.registers.registers ~f:(fun register -> !register) )
 ;;
 
