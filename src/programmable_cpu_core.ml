@@ -6,16 +6,6 @@ open Global
 (* Foundation of a CHIP-8 core. Manages the fetch execute cycle
    and maintains a random state for opcodes to use. *)
 
-let prng_seed = 2341940502312319249
-
-module States = struct
-  type t =
-    | Startup
-    | Fetch_op
-    | Execute
-  [@@deriving sexp_of, compare, enumerate]
-end
-
 module I = struct
   type 'a t =
     { clock : 'a [@bits 1]
