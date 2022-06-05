@@ -3,6 +3,9 @@ open! Hardcaml
 open! Signal
 open Global
 
+(* Foundation of a CHIP-8 core. Manages the fetch execute cycle
+   and maintains a random state for opcodes to use. *)
+
 let prng_seed = 2341940502312319249
 
 module States = struct
@@ -17,11 +20,8 @@ module I = struct
   type 'a t =
     { clock : 'a [@bits 1]
     ; clear : 'a [@bits 1]
-    ; program : 'a [@bits 1]
-    ; program_pc : 'a [@bits 12]
-    ; program_write_enable : 'a [@bits 1]
-    ; program_address : 'a [@bits 16]
-    ; program_data : 'a [@bits 8]
+    ; enable : 'a [@bits 1]
+    ; memory : 'a Main_memory.In_circuit.I.t
     }
   [@@deriving sexp_of, hardcaml]
 end
@@ -30,11 +30,6 @@ module O = struct
   type 'a t =
     { in_execute : 'a [@bits 1]
     ; in_fetch : 'a [@bits 1]
-    ; write_enable : 'a [@bits 1]
-    ; write_address : 'a [@bits 16]
-    ; write_data : 'a [@bits 8]
-    ; read_address : 'a [@bits 16]
-    ; read_data : 'a [@bits 8]
     ; op : 'a [@bits 16]
     ; working_op : 'a [@bits 16]
     ; registers : 'a Registers.In_circuit.t
@@ -43,425 +38,56 @@ module O = struct
     ; last_op : 'a [@bits 16]
     ; executor_done : 'a [@bits 1]
     ; executor_error : 'a [@bits 1]
+    ; memory : 'a Main_memory.In_circuit.O.t
     }
   [@@deriving sexp_of, hardcaml]
 end
 
-(* This updates a register using a register index value by one hot assignment.
-   If no register matches the target index then none are updated but that should
-   be impossible since the index circuit is sized for the number of registers. *)
-let onehot_assign_register registers index_circuit value =
-  let open Always in
-  proc
-    (List.mapi registers ~f:(fun i register ->
-         proc [ when_ (index_circuit ==:. i) [ register <-- value ] ]))
-;;
-
-(* A record that stores a signal of a register index and a one hot encoding of it's value *)
-module TargetRegister = struct
-  type t =
-    { value : Signal.t
-    ; index : Signal.t
-    ; (* We store a reference to the registers so we can 1-hot assign later *)
-      registers : Always.Variable.t list
-    }
-
-  let create ~(registers : Always.Variable.t list) index =
-    let value =
-      List.mapi registers ~f:(fun idx register ->
-          let target_register = lsb (index ==:. idx) in
-          { With_valid.valid = target_register; value = register.value })
-      |> onehot_select
-    in
-    { value; index; registers }
-  ;;
-
-  let assign { index; registers; _ } value =
-    let open Always in
-    proc
-      (List.mapi registers ~f:(fun i register ->
-           proc [ when_ (index ==:. i) [ register <-- value ] ]))
-  ;;
-end
-
-module ExecutorInternal = struct
-  type t =
-    { pc : Always.Variable.t
-    ; i : Always.Variable.t
-    ; sp : Always.Variable.t
-    ; (* The first nibble of the executing opcode *)
-      primary_op : Signal.t
-    ; registers : Always.Variable.t list
-    ; register_zero : Always.Variable.t
-    ; flag_register : Always.Variable.t
-    ; state : States.t Always.State_machine.t
-    ; (* If this opcode has a 12-bit pointer this signal will be equal to it *)
-      opcode_address : Signal.t
-    ; (* If the opcode contains an immediate value in the final 8 bits this signal will be equal to it *)
-      opcode_immediate : Signal.t
-    ; (* The final nibble in the opcode *)
-      opcode_final_nibble : Signal.t
-    ; (* If the opcode refers to a register in the second nibble this signal will be equal to it *)
-      opcode_first_register : TargetRegister.t
-    ; (* If the opcode refers to a register in the third nibble this signal will be equal to it *)
-      opcode_second_register : TargetRegister.t
-    ; (* 9-bit sized target registers to hold the carry TODO: Could be improved / merged into target register *)
-      opcode_first_register_9bit : Signal.t
-    ; opcode_second_register_9bit : Signal.t
-    }
-
-  let create ~executing_opcode () =
-    let open Always in
-    let open Variable in
-    let state = State_machine.create (module States) ~enable:vdd r_sync in
-    let pc = reg ~enable:vdd ~width:12 r_sync in
-    let i = reg ~enable:vdd ~width:12 r_sync in
-    let sp = reg ~enable:vdd ~width:32 r_sync in
-    let primary_op = select executing_opcode 15 12 in
-    let registers = List.init 16 ~f:(fun _ -> reg ~enable:vdd ~width:8 r_sync) in
-    let register_zero = List.nth_exn registers 0x0 in
-    let flag_register = List.nth_exn registers 0xF in
-    let opcode_address = select executing_opcode 11 0 in
-    let opcode_immediate = select executing_opcode 7 0 in
-    let opcode_final_nibble = select executing_opcode 3 0 in
-    let opcode_first_register =
-      TargetRegister.create ~registers (select executing_opcode 11 8)
-    in
-    let opcode_second_register =
-      TargetRegister.create ~registers (select executing_opcode 7 4)
-    in
-    let opcode_first_register_9bit = uresize opcode_first_register.value 9 in
-    let opcode_second_register_9bit = uresize opcode_second_register.value 9 in
-    { pc
-    ; i
-    ; sp
-    ; primary_op
-    ; registers
-    ; register_zero
-    ; flag_register
-    ; state
-    ; opcode_address
-    ; opcode_immediate
-    ; opcode_final_nibble
-    ; opcode_first_register
-    ; opcode_second_register
-    ; opcode_first_register_9bit
-    ; opcode_second_register_9bit
-    }
-  ;;
-end
-
-let register_instructions
-    ok
-    { ExecutorInternal.pc
-    ; opcode_first_register
-    ; flag_register
-    ; opcode_second_register
-    ; opcode_first_register_9bit
-    ; opcode_second_register_9bit
-    ; opcode_final_nibble
-    ; _
-    }
-  =
-  let open Always in
-  let open Variable in
-  (* Stores the result of a 9-bit add of the two registers *)
-  let add_result = opcode_first_register_9bit +: opcode_second_register_9bit in
-  let sub_result = opcode_first_register_9bit -: opcode_second_register_9bit in
-  let inv_sub_result = opcode_second_register_9bit -: opcode_first_register_9bit in
-  proc
-    [ (* Assign a register to another register *)
-      when_
-        (opcode_final_nibble ==:. 0)
-        [ TargetRegister.assign opcode_first_register opcode_second_register.value
-        ; pc <-- pc.value +:. 2
-        ; ok
-        ]
-    ; (* Or a register with another register *)
-      when_
-        (opcode_final_nibble ==:. 1)
-        [ TargetRegister.assign
-            opcode_first_register
-            (opcode_first_register.value |: opcode_second_register.value)
-        ; pc <-- pc.value +:. 2
-        ; ok
-        ]
-    ; (* And a register with another register *)
-      when_
-        (opcode_final_nibble ==:. 2)
-        [ TargetRegister.assign
-            opcode_first_register
-            (opcode_first_register.value &: opcode_second_register.value)
-        ; pc <-- pc.value +:. 2
-        ; ok
-        ]
-    ; (* Xor a register with another register *)
-      when_
-        (opcode_final_nibble ==:. 3)
-        [ TargetRegister.assign
-            opcode_first_register
-            (opcode_first_register.value ^: opcode_second_register.value)
-        ; pc <-- pc.value +:. 2
-        ; ok
-        ]
-    ; (* Add a register to another *)
-      when_
-        (opcode_final_nibble ==:. 4)
-        [ TargetRegister.assign opcode_first_register (select add_result 7 0)
-        ; (* Copy over the carry flag *)
-          flag_register <-- uresize (select add_result 8 8) 8
-        ; pc <-- pc.value +:. 2
-        ; ok
-        ]
-    ; (* Sub a register to another *)
-      when_
-        (opcode_final_nibble ==:. 5)
-        [ TargetRegister.assign opcode_first_register (select sub_result 7 0)
-        ; (* TODO: I don't think this correctly calculates a carry *)
-          flag_register <-- uresize (select sub_result 8 8) 8
-        ; pc <-- pc.value +:. 2
-        ; ok
-        ]
-    ; (* Shr register by 1 *)
-      when_
-        (opcode_final_nibble ==:. 6)
-        [ TargetRegister.assign opcode_first_register (srl opcode_first_register.value 1)
-        ; flag_register <-- uresize (lsb opcode_first_register.value) 8
-          (* It doesn't matter that this happens after because registers update after the cycle *)
-        ; pc <-- pc.value +:. 2
-        ; ok
-        ]
-    ; (* Same as sub but the operand order is reversed  *)
-      when_
-        (opcode_final_nibble ==:. 7)
-        [ TargetRegister.assign opcode_first_register (select inv_sub_result 7 0)
-        ; (* TODO: I don't think this correctly calculates a carry *)
-          flag_register <-- uresize (select inv_sub_result 8 8) 8
-        ; pc <-- pc.value +:. 2
-        ; ok
-        ]
-    ; (* Sll register by 1 *)
-      when_
-        (opcode_final_nibble ==:. 8)
-        [ TargetRegister.assign opcode_first_register (sll opcode_first_register.value 1)
-        ; flag_register <-- uresize (msb opcode_first_register.value) 8
-        ; pc <-- pc.value +:. 2
-        ; ok
-        ]
-    ]
-;;
-
-let no_op ok { ExecutorInternal.pc; _ } =
-  let open Always in
-  proc [ pc <-- pc.value +:. 2; ok ]
-;;
-
-let assign_address ?(mutate = Fn.id) register ok { ExecutorInternal.opcode_address; _ } =
-  let open Always in
-  proc [ register <-- mutate opcode_address; ok ]
-;;
-
-let skip_imm_inv
-    invariant
-    ok
-    { ExecutorInternal.pc; opcode_first_register; opcode_immediate; _ }
-  =
-  let open Always in
-  proc
-    [ if_
-        (invariant opcode_first_register.value opcode_immediate)
-        [ (* Skip the next instruction *) pc <-- pc.value +:. 4 ]
-        [ (* We do not skip the next instruction *) pc <-- pc.value +:. 2 ]
-    ; ok
-    ]
-;;
-
-let skip_reg_inv
-    invariant
-    ok
-    { ExecutorInternal.pc; opcode_first_register; opcode_second_register; _ }
-  =
-  let open Always in
-  proc
-    [ if_
-        (invariant opcode_first_register.value opcode_second_register.value)
-        [ (* Skip the next instruction *) pc <-- pc.value +:. 4 ]
-        [ (* We do not skip the next instruction *) pc <-- pc.value +:. 2 ]
-    ; ok
-    ]
-;;
-
-let combine_register_imm
-    ~f
-    ok
-    { ExecutorInternal.pc; opcode_first_register; opcode_immediate; _ }
-  =
-  let open Always in
-  proc
-    [ TargetRegister.assign
-        opcode_first_register
-        (f opcode_first_register.value opcode_immediate)
-    ; pc <-- pc.value +:. 2
-    ; ok
-    ]
-;;
-
-let startup
-    ~random_state_seed
-    ~(internal : ExecutorInternal.t)
-    ~(state : States.t Always.State_machine.t)
-  =
+let startup ~random_state_seed ~(state : States.t Always.State_machine.t) =
   let open Always in
   [ (* Seed the PRNG on the first cycle. Since this is fixed machines will always behave identically. *)
     random_state_seed <--. prng_seed
-  ; internal.pc <--. 0
-  ; internal.sp <--. 0
-  ; internal.i <--. 0
   ; state.set_next Fetch_op
   ]
 ;;
 
-let programming_mode ~(internal : ExecutorInternal.t) ~(ram : Main_memory.t) (i : _ I.t) =
-  let open Always in
-  [ ram.read_address <-- i.program_address
-  ; ram.write_enable <-- i.program_write_enable
-  ; ram.write_address <-- i.program_address
-  ; ram.write_data <-- i.program_data
-  ; internal.pc <-- i.program_pc
-  ]
-;;
-
-let execute_instruction
-    ~error
-    ~done_
-    ~(state : States.t Always.State_machine.t)
-    ~(internal : ExecutorInternal.t)
-    ~ram
-    ~(random_state : _ Xor_shift.O.t)
-    (inputs : _ I.t)
-  =
-  let open Always in
-  let draw_enable = reg_false () in
-  let draw_implementation, draw_wiring =
-    Main_memory.create_with_in_circuit ram ~f:(fun ~input ->
-        let i = internal.i.value in
-        let x = internal.opcode_first_register.value in
-        let y = internal.opcode_second_register.value in
-        let n = internal.opcode_final_nibble in
-        let o =
-          Draw.create
-            ~spec:r_sync
-            { Draw.I.clock = inputs.clock
-            ; clear = inputs.clear
-            ; enable = draw_enable.value
-            ; x
-            ; y
-            ; n
-            ; i
-            ; memory = input
-            }
-        in
-        o, o.memory)
-  in
-  let ok = proc [ error <--. 0; done_ <--. 1; state.set_next Fetch_op ] in
-  proc
-    [ (* This error state will become 0 if any op is matched *)
-      error <--. 1
-    ; (* We use 0 (originally native code call) as a No-op *)
-      when_ (internal.primary_op ==:. 0) [ no_op ok internal ]
-    ; (* Jump to the 12 bits at the end of the opcode *)
-      when_ (internal.primary_op ==:. 1) [ assign_address internal.pc ok internal ]
-    ; (* Skip the next instruction of register is equal to immediate *)
-      when_ (internal.primary_op ==:. 3) [ skip_imm_inv ( ==: ) ok internal ]
-    ; (* Skip the next instruction of register is not equal to immediate (dual of the opcode above) *)
-      when_ (internal.primary_op ==:. 4) [ skip_imm_inv ( <>: ) ok internal ]
-    ; (* Skip the next instruction of register is equal to the second target register *)
-      when_ (internal.primary_op ==:. 5) [ skip_reg_inv ( ==: ) ok internal ]
-    ; (* Assigns the register pointed to by the second nibble of the opcode to the value stored in the final byte of the opcode *)
-      when_
-        (internal.primary_op ==:. 6)
-        [ combine_register_imm ~f:(fun _ x -> x) ok internal ]
-    ; (* Accumulate an immediate into the register addressed to by the second nibble of the opcode *)
-      when_
-        (internal.primary_op ==:. 7)
-        [ combine_register_imm ~f:(fun x y -> x +: y) ok internal ]
-    ; (* 8__x opcodes are register operations *)
-      when_ (internal.primary_op ==:. 8) [ register_instructions ok internal ]
-    ; (* Skip the next instruction of register is not equal to the second target register *)
-      when_ (internal.primary_op ==:. 9) [ skip_reg_inv ( <>: ) ok internal ]
-    ; (* Set the i register to the opcode address *)
-      when_
-        (internal.primary_op ==:. 10)
-        [ assign_address internal.i ok internal; internal.pc <-- internal.pc.value +:. 2 ]
-    ; (* Set the pc register to a fixed address + V0 *)
-      when_
-        (internal.primary_op ==:. 11)
-        [ assign_address
-            ~mutate:(fun pc -> uresize internal.register_zero.value 12 +: pc)
-            internal.pc
-            ok
-            internal
-        ]
-    ; (* XOR the first register with the state of the PRNG *)
-      when_
-        (internal.primary_op ==:. 12)
-        [ TargetRegister.assign
-            internal.opcode_first_register
-            (internal.opcode_first_register.value ^: select random_state.pseudo_random 7 0)
-        ; internal.pc <-- internal.pc.value +:. 2
-        ; ok
-        ]
-    ; when_
-        (internal.primary_op ==:. 13)
-        [ draw_enable <--. 1
-        ; draw_wiring
-        ; error <--. 0
-        ; when_
-            draw_implementation.finished
-            [ ok; internal.pc <-- internal.pc.value +:. 2 ]
-        ]
-    ; when_
-        (internal.primary_op ==:. 14)
-        [ (* TODO: Key press instructions *) internal.pc <-- internal.pc.value +:. 2; ok ]
-    ]
-;;
-
-let create (i : _ I.t) : _ O.t =
+let create { I.clear; clock; enable; memory } : _ O.t =
   let open Always in
   let open Variable in
-  let ram = Main_memory.create () in
+  let ram = Main_memory.Wires.t_of_in_circuit memory in
   let random_state_seed = wire ~default:(Signal.of_int ~width:64 0) in
   let random_state =
-    Xor_shift.create
-      { Xor_shift.I.clock = i.clock; clear = i.clear; seed = random_state_seed.value }
+    Xor_shift.create { Xor_shift.I.clock; clear; seed = random_state_seed.value }
   in
   let executing_opcode =
     Immediate_register.create ~spec:r_sync ~width:(Sized.size `Opcode)
   in
   let error = reg ~enable:vdd ~width:1 r_sync in
-  let done_ = reg_false () in
+  let done_ = wire_false () in
   let in_execute = wire ~default:(Signal.of_int ~width:1 0) in
   let in_fetch = wire ~default:(Signal.of_int ~width:1 0) in
-  let internal = ExecutorInternal.create ~executing_opcode:executing_opcode.value () in
-  let state = internal.state in
+  let internal =
+    Execute_core.create ~executing_opcode:executing_opcode.value ~spec:r_sync ()
+  in
+  let state = State_machine.create (module States) ~enable:vdd r_sync in
   let last_op = reg ~enable:vdd ~width:16 r_sync in
   let fetch, fetch_wiring =
-    Main_memory.create_with_in_circuit_just_read ram ~f:(fun ~input ->
+    Main_memory.create_with_in_circuit_just_read ram ~f:(fun ~memory ->
         let o =
           Fetch.create
             ~spec:(r_enabled ~enable:in_fetch.value)
-            { Fetch.I.clock = i.clock
-            ; clear = i.clear
+            { Fetch.I.clock
+            ; clear
             ; in_fetch = in_fetch.value
-            ; program_counter = internal.pc.value
-            ; memory = input
+            ; program_counter = internal.registers.pc.value
+            ; memory
             }
         in
         o, o.memory)
   in
   let main_execution =
     [ state.switch
-        [ Startup, startup ~random_state_seed ~internal ~state
+        [ Startup, startup ~random_state_seed ~state
         ; ( Fetch_op
           , [ fetch_wiring
             ; in_fetch <--. 1
@@ -472,35 +98,35 @@ let create (i : _ I.t) : _ O.t =
                 ; state.set_next Execute
                 ]
             ] )
-        ; Execute, [ in_execute <--. 1 ]
+        ; ( Execute
+          , [ in_execute <--. 1; when_ (done_.value ==:. 1) [ state.set_next Fetch_op ] ]
+          )
         ]
     ; when_
         (in_execute.value ==:. 1)
         [ last_op <-- executing_opcode.value
-        ; execute_instruction ~error ~internal ~ram ~random_state ~state ~done_ i
+        ; Execute_core.execute_instruction
+            ~clock
+            ~clear
+            ~error
+            ~done_
+            ~ram
+            ~random_state
+            internal
         ]
     ]
   in
-  compile [ if_ (i.program ==:. 1) (programming_mode ~internal ~ram i) main_execution ];
+  compile [ when_ (is_set enable) main_execution ];
   { O.in_execute = in_execute.value
   ; in_fetch = in_fetch.value
-  ; write_enable = ram.write_enable.value
-  ; write_address = ram.write_address.value
-  ; write_data = ram.write_data.value
-  ; read_data = ram.read_data
-  ; read_address = ram.read_address.value
   ; op = executing_opcode.value
   ; working_op = fetch.opcode
   ; last_op = last_op.value
   ; executor_done = done_.value
   ; executor_error = error.value
-  ; registers =
-      { Registers.In_circuit.pc = internal.pc.value
-      ; i = internal.i.value
-      ; sp = internal.sp.value
-      ; registers = List.map internal.registers ~f:(fun register -> register.value)
-      }
+  ; registers = Registers.to_circuit internal.registers
   ; fetch_cycle = fetch.fetch_cycle
   ; fetch_finished = fetch.finished
+  ; memory = Main_memory.In_circuit.O.t_of_main_memory ram
   }
 ;;

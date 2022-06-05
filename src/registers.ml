@@ -6,7 +6,9 @@ module In_circuit = struct
   type 'a t =
     { pc : 'a [@bits 12]
     ; i : 'a [@bits 12]
-    ; sp : 'a [@bits 32]
+    ; sp : 'a
+          [@bits 32]
+          (* Rename these to Vn or some other name to separate it from the module name? *)
     ; registers : 'a list [@length 16] [@bits 8]
     }
   [@@deriving sexp_of, hardcaml]

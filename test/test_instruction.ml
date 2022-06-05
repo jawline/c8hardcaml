@@ -1,6 +1,6 @@
 open Core
 open Hardcaml
-open C8.Cpu_core
+open C8.Programmable_cpu_core
 open Helper
 
 let no_op = 0b0000_0000_0000_0000
@@ -47,16 +47,16 @@ let test ~opcodes ~stop_when =
       let step () =
         sim_cycle_not_programming sim inputs outputs ~print:false;
         stop_when
-          (Bits.to_int !(outputs.executor_error))
-          (Bits.to_int !(outputs.executor_done))
+          (Bits.to_int !(outputs.core.executor_error))
+          (Bits.to_int !(outputs.core.executor_done))
       in
       let rec until ~f = if f () then () else until ~f in
       until ~f:step);
   (* When we stop on done the registers have just been set so run one more cycle so that their new state is reflected in output *)
   sim_cycle_not_programming sim inputs outputs ~print:false;
-  ( !(outputs.registers.pc)
-  , !(outputs.executor_error)
-  , List.map outputs.registers.registers ~f:(fun register -> !register) )
+  ( !(outputs.core.registers.pc)
+  , !(outputs.core.executor_error)
+  , List.map outputs.core.registers.registers ~f:(fun register -> !register) )
 ;;
 
 let print_registers ~registers =

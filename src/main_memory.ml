@@ -4,11 +4,24 @@ open Signal
 open Always
 open Global
 
+(** A helper module to propagate wires that set the read and write
+    data lines in board RAM. *)
+
 let ram_size = 4096
 let framebuffer_start = ram_size
 
 (* One bit per pixel in a 64x32 display *)
 let frame_buffer = screen_width * screen_height / 8
+
+type main_memory =
+  { write_enable : Always.Variable.t
+  ; write_address : Always.Variable.t
+  ; write_data : Always.Variable.t
+  ; read_address : Always.Variable.t
+  ; read_data : Signal.t
+  }
+
+type t = main_memory
 
 module In_circuit = struct
   module I = struct
@@ -28,7 +41,7 @@ module In_circuit = struct
       { read_address : 'a [@bits 16]
       ; write_enable : 'a [@bits 1]
       ; write_address : 'a [@bits 16]
-      ; write_data : 'a [@bits 16]
+      ; write_data : 'a [@bits 8]
       }
     [@@deriving sexp_of, hardcaml]
 
@@ -48,23 +61,20 @@ module In_circuit = struct
         ~write_address:write_address.value
         ~write_data:write_data.value
     ;;
+
+    let t_of_main_memory
+        ({ read_address; write_enable; write_address; write_data; read_data = _ } :
+          main_memory)
+      =
+      always_create ~read_address ~write_enable ~write_address ~write_data
+    ;;
   end
 end
-
-(** A helper module to wrap wires to read and write from memory in a default structure *)
-
-type t =
-  { write_enable : Always.Variable.t
-  ; write_address : Always.Variable.t
-  ; write_data : Always.Variable.t
-  ; read_address : Always.Variable.t
-  ; read_data : Signal.t
-  }
 
 let create_with_in_circuit (t : t) ~f =
   let open Always in
   let output, { In_circuit.O.write_enable; write_address; write_data; read_address } =
-    f ~input:{ In_circuit.I.read_data = t.read_data }
+    f ~memory:{ In_circuit.I.read_data = t.read_data }
   in
   let connect_outputs_to_ram =
     proc
@@ -80,7 +90,7 @@ let create_with_in_circuit (t : t) ~f =
 let create_with_in_circuit_just_read (t : t) ~f =
   let open Always in
   let output, { In_circuit.O.Just_read.read_address } =
-    f ~input:{ In_circuit.I.read_data = t.read_data }
+    f ~memory:{ In_circuit.I.read_data = t.read_data }
   in
   let connect_outputs_to_ram = proc [ t.read_address <-- read_address ] in
   output, connect_outputs_to_ram
@@ -98,14 +108,43 @@ let machine_ram ~write_enable ~write_address ~write_data ~read_address =
   Array.get read_ports 0
 ;;
 
+module Wires = struct
+  type t =
+    { write_enable : Always.Variable.t
+    ; write_address : Always.Variable.t
+    ; write_data : Always.Variable.t
+    ; read_address : Always.Variable.t
+    }
+
+  (* This creates t of wires for use as an intermediate store
+           of main memory assignments. Main memory is not wired to it. *)
+  let create () =
+    let write_enable =
+      Variable.wire ~default:(Signal.of_int ~width:(Sized.size `Bit) 0)
+    in
+    let write_address =
+      Variable.wire ~default:(Signal.of_int ~width:(Sized.size `Main_address) 0)
+    in
+    let write_data = Variable.wire ~default:(Signal.of_int ~width:(Sized.size `Byte) 0) in
+    let read_address =
+      Variable.wire ~default:(Signal.of_int ~width:(Sized.size `Main_address) 0)
+    in
+    { write_enable; write_address; write_data; read_address }
+  ;;
+
+  (** Convert this to a mock main memory which is not necessarily wired into the main memory *)
+  let to_main_memory ~read_data { write_enable; write_address; write_data; read_address } =
+    { write_enable; write_address; write_data; read_address; read_data }
+  ;;
+
+  let t_of_in_circuit ({ read_data } : _ In_circuit.I.t) =
+    to_main_memory ~read_data (create ())
+  ;;
+end
+
 let create () =
-  let write_enable = Variable.wire ~default:(Signal.of_int ~width:(Sized.size `Bit) 0) in
-  let write_address =
-    Variable.wire ~default:(Signal.of_int ~width:(Sized.size `Main_address) 0)
-  in
-  let write_data = Variable.wire ~default:(Signal.of_int ~width:(Sized.size `Byte) 0) in
-  let read_address =
-    Variable.wire ~default:(Signal.of_int ~width:(Sized.size `Main_address) 0)
+  let ({ Wires.write_enable; write_address; write_data; read_address } as wires) =
+    Wires.create ()
   in
   let read_data =
     machine_ram
@@ -114,5 +153,5 @@ let create () =
       ~write_data:write_data.value
       ~read_address:read_address.value
   in
-  { write_enable; write_address; write_data; read_address; read_data }
+  Wires.to_main_memory ~read_data wires
 ;;

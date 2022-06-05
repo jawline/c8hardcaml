@@ -2,7 +2,7 @@ open Core
 open Async
 open Hardcaml
 open C8.Global
-open C8.Cpu_core
+open C8.Programmable_cpu_core
 
 let make_rom_of_opcodes ~opcodes =
   let opcode_to_bytes opcode =
@@ -76,5 +76,5 @@ let frame_buffer_as_string sim (i : _ I.t) (o : _ O.t) =
 let sim_cycle_not_programming sim (i : _ I.t) (o : _ O.t) ~print =
   sim_disable_programming i;
   Cyclesim.cycle sim;
-  if print then print_s [%sexp (o : Bits.t ref O.t)] else ()
+  if print then print_s [%sexp (o.core : Bits.t ref C8.Cpu_core.O.t)] else ()
 ;;
