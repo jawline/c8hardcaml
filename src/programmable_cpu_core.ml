@@ -42,15 +42,14 @@ let create (i : _ I.t) : _ O.t =
   let ram = Main_memory.create () in
   let enable = wire_false () in
   let core, core_wiring =
-    Main_memory.create_with_in_circuit ram ~f:(fun ~memory ->
+    Main_memory.circuit_with_memory ram ~f:(fun ~memory ->
         let core =
           Cpu_core.create { Cpu_core.I.clear; clock; enable = enable.value; memory }
         in
         core, core.memory)
   in
   compile
-    [ core_wiring
-    ; if_ (is_set i.program) [ programming_mode ~ram i ] [ set_high enable ]
+    [ if_ (is_set i.program) [ programming_mode ~ram i ] [ core_wiring; set_high enable ]
     ];
   { core; read_data = ram.read_data }
 ;;

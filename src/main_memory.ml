@@ -35,6 +35,10 @@ module In_circuit = struct
       let always_create ~(read_address : Always.Variable.t) =
         { read_address = read_address.value }
       ;;
+
+      let t_of_main_memory ({ read_address; _ } : main_memory) =
+        always_create ~read_address
+      ;;
     end
 
     type 'a t =
@@ -70,31 +74,6 @@ module In_circuit = struct
     ;;
   end
 end
-
-let create_with_in_circuit (t : t) ~f =
-  let open Always in
-  let output, { In_circuit.O.write_enable; write_address; write_data; read_address } =
-    f ~memory:{ In_circuit.I.read_data = t.read_data }
-  in
-  let connect_outputs_to_ram =
-    proc
-      [ t.write_enable <-- write_enable
-      ; t.write_address <-- write_address
-      ; t.write_data <-- write_data
-      ; t.read_address <-- read_address
-      ]
-  in
-  output, connect_outputs_to_ram
-;;
-
-let create_with_in_circuit_just_read (t : t) ~f =
-  let open Always in
-  let output, { In_circuit.O.Just_read.read_address } =
-    f ~memory:{ In_circuit.I.read_data = t.read_data }
-  in
-  let connect_outputs_to_ram = proc [ t.read_address <-- read_address ] in
-  output, connect_outputs_to_ram
-;;
 
 let machine_ram ~write_enable ~write_address ~write_data ~read_address =
   let read_ports =
@@ -154,4 +133,29 @@ let create () =
       ~read_address:read_address.value
   in
   Wires.to_main_memory ~read_data wires
+;;
+
+let circuit_with_memory (t : t) ~f =
+  let open Always in
+  let output, { In_circuit.O.write_enable; write_address; write_data; read_address } =
+    f ~memory:{ In_circuit.I.read_data = t.read_data }
+  in
+  let connect_outputs_to_ram =
+    proc
+      [ t.write_enable <-- write_enable
+      ; t.write_address <-- write_address
+      ; t.write_data <-- write_data
+      ; t.read_address <-- read_address
+      ]
+  in
+  output, connect_outputs_to_ram
+;;
+
+let circuit_with_just_read_memory (t : t) ~f =
+  let open Always in
+  let output, { In_circuit.O.Just_read.read_address } =
+    f ~memory:{ In_circuit.I.read_data = t.read_data }
+  in
+  let connect_outputs_to_ram = proc [ t.read_address <-- read_address ] in
+  output, connect_outputs_to_ram
 ;;

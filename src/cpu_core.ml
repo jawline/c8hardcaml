@@ -72,7 +72,7 @@ let create { I.clear; clock; enable; memory } : _ O.t =
   let state = State_machine.create (module States) ~enable:vdd r_sync in
   let last_op = reg ~enable:vdd ~width:16 r_sync in
   let fetch, fetch_wiring =
-    Main_memory.create_with_in_circuit_just_read ram ~f:(fun ~memory ->
+    Main_memory.circuit_with_just_read_memory ram ~f:(fun ~memory ->
         let o =
           Fetch.create
             ~spec:(r_enabled ~enable:in_fetch.value)
@@ -98,9 +98,7 @@ let create { I.clear; clock; enable; memory } : _ O.t =
                 ; state.set_next Execute
                 ]
             ] )
-        ; ( Execute
-          , [ in_execute <--. 1; when_ (done_.value ==:. 1) [ state.set_next Fetch_op ] ]
-          )
+        ; Execute, [ in_execute <--. 1 ]
         ]
     ; when_
         (in_execute.value ==:. 1)
@@ -113,6 +111,7 @@ let create { I.clear; clock; enable; memory } : _ O.t =
             ~ram
             ~random_state
             internal
+        ; when_ (done_.value ==:. 1) [ state.set_next Fetch_op ]
         ]
     ]
   in

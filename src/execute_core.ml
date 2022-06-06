@@ -228,7 +228,7 @@ let execute_instruction
   let open Always in
   let draw_enable = wire_false () in
   let draw_implementation, draw_wiring =
-    Main_memory.create_with_in_circuit ram ~f:(fun ~memory ->
+    Main_memory.circuit_with_memory ram ~f:(fun ~memory ->
         let i = i.value in
         let x = opcode_first_register.value in
         let y = opcode_second_register.value in
@@ -240,7 +240,7 @@ let execute_instruction
         in
         o, o.memory)
   in
-  Core.print_s [%message "REMOVE ME WHEN SP IS USED"];
+  Core.print_s [%message "WARN: REMOVE ME WHEN SP IS USED"];
   compile [ sp <--. 0 ];
   let ok = proc [ error <--. 0; done_ <--. 1 ] in
   (* TODO: Replace hardcoded constants with names *)

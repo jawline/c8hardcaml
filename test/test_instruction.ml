@@ -39,13 +39,16 @@ let test ~opcodes ~stop_when =
   let sim = Simulator.create create in
   let inputs : _ I.t = Cyclesim.inputs sim in
   let outputs : _ O.t = Cyclesim.outputs sim in
+  let print = false in
   let rom = make_rom_of_opcodes ~opcodes in
-  List.iter ~f:(printf "%x ") rom;
-  printf "\n";
+  if print
+  then (
+    List.iter ~f:(printf "%x ") rom;
+    printf "\n");
   sim_program_rom sim inputs ~rom;
   List.iter opcodes ~f:(fun _ ->
       let step () =
-        sim_cycle_not_programming sim inputs outputs ~print:false;
+        sim_cycle_not_programming sim inputs outputs ~print;
         stop_when
           (Bits.to_int !(outputs.core.executor_error))
           (Bits.to_int !(outputs.core.executor_done))
@@ -53,7 +56,7 @@ let test ~opcodes ~stop_when =
       let rec until ~f = if f () then () else until ~f in
       until ~f:step);
   (* When we stop on done the registers have just been set so run one more cycle so that their new state is reflected in output *)
-  sim_cycle_not_programming sim inputs outputs ~print:false;
+  sim_cycle_not_programming sim inputs outputs ~print;
   ( !(outputs.core.registers.pc)
   , !(outputs.core.executor_error)
   , List.map outputs.core.registers.registers ~f:(fun register -> !register) )
@@ -74,7 +77,7 @@ let%expect_test "step (enabled)" =
   let pc = Bits.to_int pc in
   Core.print_s [%message (pc : int)];
   [%expect {|
-    0 0
+    "WARN: REMOVE ME WHEN SP IS USED"
     (pc 2) |}]
 ;;
 
@@ -85,7 +88,7 @@ let%expect_test "step (jump) to 1024" =
   let pc, error = Bits.to_int pc, Bits.to_int error in
   Core.print_s [%message (pc : int) (error : int)];
   [%expect {|
-    14 0
+    "WARN: REMOVE ME WHEN SP IS USED"
     ((pc 1024) (error 0)) |}]
 ;;
 
@@ -96,7 +99,7 @@ let%expect_test "step (jump) to 512" =
   let pc, error = Bits.to_int pc, Bits.to_int error in
   Core.print_s [%message (pc : int) (error : int)];
   [%expect {|
-    12 0
+    "WARN: REMOVE ME WHEN SP IS USED"
     ((pc 512) (error 0)) |}]
 ;;
 
@@ -105,7 +108,7 @@ let%expect_test "step (jump) to 1" =
   let pc, error = Bits.to_int pc, Bits.to_int error in
   Core.print_s [%message (pc : int) (error : int)];
   [%expect {|
-    10 1
+    "WARN: REMOVE ME WHEN SP IS USED"
     ((pc 1) (error 0)) |}]
 ;;
 
@@ -118,7 +121,7 @@ let%expect_test "assign V0 to 1" =
   print_registers ~registers;
   [%expect
     {|
-      60 1
+      "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 2) (error 0))
       (as_strings
        (V0:00000001 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
@@ -135,7 +138,7 @@ let%expect_test "assign V1 to 2" =
   print_registers ~registers;
   [%expect
     {|
-      61 2
+      "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 2) (error 0))
       (as_strings
        (V0:00000000 V1:00000010 V2:00000000 V3:00000000 V4:00000000 V5:00000000
@@ -152,7 +155,7 @@ let%expect_test "assign V2 to 3" =
   print_registers ~registers;
   [%expect
     {|
-      62 3
+      "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 2) (error 0))
       (as_strings
        (V0:00000000 V1:00000000 V2:00000011 V3:00000000 V4:00000000 V5:00000000
@@ -169,7 +172,7 @@ let%expect_test "assign V6 to max_int (255)" =
   print_registers ~registers;
   [%expect
     {|
-      66 ff
+      "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 2) (error 0))
       (as_strings
        (V0:00000000 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
@@ -188,7 +191,7 @@ let%expect_test "test skip if equal on equal value" =
   print_registers ~registers;
   [%expect
     {|
-      60 5 30 5
+      "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 6) (error 0))
       (as_strings
        (V0:00000101 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
@@ -210,7 +213,7 @@ let%expect_test "test skip if equal on non-equal value" =
   print_registers ~registers;
   [%expect
     {|
-      60 4 30 5
+      "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 4) (error 0))
       (as_strings
        (V0:00000100 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
@@ -232,7 +235,7 @@ let%expect_test "test skip if not equal on equal value" =
   print_registers ~registers;
   [%expect
     {|
-      60 5 40 5
+      "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 4) (error 0))
       (as_strings
        (V0:00000101 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
@@ -254,7 +257,7 @@ let%expect_test "test skip if v0 = v1 when v0 = v1" =
   print_registers ~registers;
   [%expect
     {|
-      60 5 61 5 50 10
+      "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 8) (error 0))
       (as_strings
        (V0:00000101 V1:00000101 V2:00000000 V3:00000000 V4:00000000 V5:00000000
@@ -276,7 +279,7 @@ let%expect_test "test skip if v0 = v1 when v0 <> v1" =
   print_registers ~registers;
   [%expect
     {|
-      60 4 61 5 50 10
+      "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 6) (error 0))
       (as_strings
        (V0:00000100 V1:00000101 V2:00000000 V3:00000000 V4:00000000 V5:00000000
@@ -293,7 +296,7 @@ let%expect_test "add 5 to v0 twices" =
   print_registers ~registers;
   [%expect
     {|
-      70 5 70 5
+      "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 4) (error 0))
       (as_strings
        (V0:00001010 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
@@ -310,7 +313,7 @@ let%expect_test "assign 4 to v0 then add 5 to v0" =
   print_registers ~registers;
   [%expect
     {|
-      60 4 70 5
+      "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 4) (error 0))
       (as_strings
        (V0:00001001 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
@@ -327,7 +330,7 @@ let%expect_test "assign 2 to v1 then assign v0 to v1" =
   print_registers ~registers;
   [%expect
     {|
-      61 2 80 10
+      "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 4) (error 0))
       (as_strings
        (V0:00000010 V1:00000010 V2:00000000 V3:00000000 V4:00000000 V5:00000000
@@ -346,7 +349,7 @@ let%expect_test "assign 2 to v1 then assign 1 to v0 then or them" =
   print_registers ~registers;
   [%expect
     {|
-      61 1 60 2 80 11
+      "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 6) (error 0))
       (as_strings
        (V0:00000011 V1:00000001 V2:00000000 V3:00000000 V4:00000000 V5:00000000
@@ -365,7 +368,7 @@ let%expect_test "assign 2 to v1 then assign 3 to v0 then and them" =
   print_registers ~registers;
   [%expect
     {|
-      61 1 60 3 80 12
+      "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 6) (error 0))
       (as_strings
        (V0:00000001 V1:00000001 V2:00000000 V3:00000000 V4:00000000 V5:00000000
@@ -384,7 +387,7 @@ let%expect_test "assign 2 to v1 then assign 3 to v0 then xor them" =
   print_registers ~registers;
   [%expect
     {|
-      61 1 60 3 80 13
+      "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 6) (error 0))
       (as_strings
        (V0:00000010 V1:00000001 V2:00000000 V3:00000000 V4:00000000 V5:00000000
@@ -401,7 +404,7 @@ let%expect_test "test random state" =
   print_registers ~registers;
   [%expect
     {|
-      61 1 c1 0
+      "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 4) (error 0))
       (as_strings
        (V0:00000000 V1:11111111 V2:00000000 V3:00000000 V4:00000000 V5:00000000
