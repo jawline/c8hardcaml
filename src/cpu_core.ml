@@ -6,7 +6,7 @@ open Global
 (* Foundation of a CHIP-8 core. Manages the fetch execute cycle
    and maintains a random state for opcodes to use. *)
 
-let prng_seed = 2341940502312319249
+let prng_seed = 3929319
 
 module States = struct
   type t =

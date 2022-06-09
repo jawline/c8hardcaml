@@ -66,9 +66,9 @@ let frame_buffer_as_string sim (i : _ I.t) (o : _ O.t) =
   in
   Sequence.range 0 screen_height
   |> Sequence.map ~f:(fun y ->
-         Sequence.range 0 screen_height
+         Sequence.range 0 screen_width
          |> Sequence.map ~f:(fun x -> pixel x y)
-         |> Sequence.map ~f:(fun x -> if x <> 0 then "*" else " ")
+         |> Sequence.map ~f:(fun x -> if x <> 0 then "*" else ".")
          |> Sequence.to_list
          |> String.concat ~sep:"")
   |> Sequence.to_list
