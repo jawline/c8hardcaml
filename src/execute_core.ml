@@ -221,6 +221,7 @@ let execute_instruction
      ; opcode_first_register
      ; opcode_second_register
      ; opcode_final_nibble
+     ; opcode_immediate
      ; register_zero
      ; _
      } as t)
@@ -277,7 +278,7 @@ let execute_instruction
         (primary_op ==:. 12)
         [ Target_register.assign
             opcode_first_register
-            (opcode_first_register.value ^: select random_state.pseudo_random 7 0)
+            (opcode_immediate &: select random_state.pseudo_random 7 0)
         ; pc <-- pc.value +:. 2
         ; ok
         ]

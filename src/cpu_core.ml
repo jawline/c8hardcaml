@@ -39,15 +39,17 @@ module O = struct
     ; executor_done : 'a [@bits 1]
     ; executor_error : 'a [@bits 1]
     ; memory : 'a Main_memory.In_circuit.O.t
+    ; random_state : 'a [@bits 8]
     }
   [@@deriving sexp_of, hardcaml]
 end
 
-let startup ~random_state_seed ~(state : States.t Always.State_machine.t) =
+let startup ~(registers : Registers.t) ~random_state_seed ~(state : States.t Always.State_machine.t) =
   let open Always in
   [ (* Seed the PRNG on the first cycle. Since this is fixed machines will always behave identically. *)
     random_state_seed <--. prng_seed
   ; state.set_next Fetch_op
+  ; registers.pc <--. 0x200
   ]
 ;;
 
@@ -87,7 +89,7 @@ let create { I.clear; clock; enable; memory } : _ O.t =
   in
   let main_execution =
     [ state.switch
-        [ Startup, startup ~random_state_seed ~state
+        [ Startup, startup ~random_state_seed ~state ~registers:internal.registers
         ; ( Fetch_op
           , [ fetch_wiring
             ; in_fetch <--. 1
@@ -127,5 +129,6 @@ let create { I.clear; clock; enable; memory } : _ O.t =
   ; fetch_cycle = fetch.fetch_cycle
   ; fetch_finished = fetch.finished
   ; memory = Main_memory.In_circuit.O.t_of_main_memory ram
+  ; random_state = select  random_state.pseudo_random 7 0
   }
 ;;

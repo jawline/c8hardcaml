@@ -4,6 +4,8 @@ open Hardcaml
 open C8.Global
 open C8.Programmable_cpu_core
 
+let program_start_offset = 0x200
+
 let make_rom_of_opcodes ~opcodes =
   let opcode_to_bytes opcode =
     [ (opcode land 0b1111_1111_0000_0000) lsr 8; opcode land 0b1111_1111 ]
@@ -29,7 +31,7 @@ let sim_set_write_ram sim (i : _ I.t) addr data =
 let sim_disable_programming (i : _ I.t) = i.program := Bits.of_int ~width:1 0
 
 let sim_program_rom sim (i : _ I.t) ~rom =
-  List.iteri rom ~f:(fun addr value -> sim_set_write_ram sim i addr value);
+  List.iteri rom ~f:(fun addr value -> sim_set_write_ram sim i (addr + program_start_offset) value);
   sim_disable_programming i
 ;;
 
