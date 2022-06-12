@@ -54,7 +54,7 @@ let sim_read_memory_range sim (i : _ I.t) (o : _ O.t) start sz =
 ;;
 
 let sim_read_framebuffer sim (i : _ I.t) (o : _ O.t) =
-  sim_read_memory_range sim i o C8.Main_memory.ram_size C8.Main_memory.frame_buffer
+  sim_read_memory_range sim i o C8.Main_memory.framebuffer_start C8.Main_memory.frame_buffer_size
 ;;
 
 let frame_buffer_as_string sim (i : _ I.t) (o : _ O.t) =
