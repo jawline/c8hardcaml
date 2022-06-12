@@ -27,6 +27,8 @@ let jump_to_512 = 0b0001001000000000
 let jump_to_1024 = 0b0001010000000000
 let jump_to_1 = 0b0001000000000001
 
+let add_i_by_v1 = 0b1111000100011110
+
 let bounded_standard_stop ?(max = 1000) () =
   let executed = ref 0 in
   fun error done_ ->
@@ -59,15 +61,16 @@ let test ~opcodes ~stop_when =
   sim_cycle_not_programming sim inputs outputs ~print;
   ( !(outputs.core.registers.pc)
   , !(outputs.core.executor_error)
-  , List.map outputs.core.registers.registers ~f:(fun register -> !register) )
+  , outputs.core.registers )
 ;;
 
-let print_registers ~registers =
+let print_registers ~(registers : _ C8.Registers.In_circuit.t) =
   let as_strings =
-    List.mapi registers ~f:(fun i register ->
-        sprintf "V%i:%s" i (Bits.to_string register))
+          [(sprintf "I:%s" (Bits.to_string (!(registers.i))))] @
+    List.mapi registers.registers ~f:(fun i register ->
+        sprintf "V%i:%s" i (Bits.to_string (!register)))
   in
-  Core.print_s [%message (as_strings : string list)]
+  Core.print_s [%message "" ~_:(as_strings : string list)]
 ;;
 
 let%expect_test "step (enabled)" =
@@ -123,10 +126,9 @@ let%expect_test "assign V0 to 1" =
     {|
       "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 514) (error 0))
-      (as_strings
-       (V0:00000001 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
-        V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
-        V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
+      (I:000000000000 V0:00000001 V1:00000000 V2:00000000 V3:00000000 V4:00000000
+       V5:00000000 V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000
+       V11:00000000 V12:00000000 V13:00000000 V14:00000000 V15:00000000) |}]
 ;;
 
 let%expect_test "assign V1 to 2" =
@@ -140,10 +142,9 @@ let%expect_test "assign V1 to 2" =
     {|
       "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 514) (error 0))
-      (as_strings
-       (V0:00000000 V1:00000010 V2:00000000 V3:00000000 V4:00000000 V5:00000000
-        V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
-        V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
+      (I:000000000000 V0:00000000 V1:00000010 V2:00000000 V3:00000000 V4:00000000
+       V5:00000000 V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000
+       V11:00000000 V12:00000000 V13:00000000 V14:00000000 V15:00000000) |}]
 ;;
 
 let%expect_test "assign V2 to 3" =
@@ -157,10 +158,9 @@ let%expect_test "assign V2 to 3" =
     {|
       "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 514) (error 0))
-      (as_strings
-       (V0:00000000 V1:00000000 V2:00000011 V3:00000000 V4:00000000 V5:00000000
-        V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
-        V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
+      (I:000000000000 V0:00000000 V1:00000000 V2:00000011 V3:00000000 V4:00000000
+       V5:00000000 V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000
+       V11:00000000 V12:00000000 V13:00000000 V14:00000000 V15:00000000) |}]
 ;;
 
 let%expect_test "assign V6 to max_int (255)" =
@@ -174,10 +174,9 @@ let%expect_test "assign V6 to max_int (255)" =
     {|
       "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 514) (error 0))
-      (as_strings
-       (V0:00000000 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
-        V6:11111111 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
-        V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
+      (I:000000000000 V0:00000000 V1:00000000 V2:00000000 V3:00000000 V4:00000000
+       V5:00000000 V6:11111111 V7:00000000 V8:00000000 V9:00000000 V10:00000000
+       V11:00000000 V12:00000000 V13:00000000 V14:00000000 V15:00000000) |}]
 ;;
 
 let%expect_test "test skip if equal on equal value" =
@@ -193,10 +192,9 @@ let%expect_test "test skip if equal on equal value" =
     {|
       "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 518) (error 0))
-      (as_strings
-       (V0:00000101 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
-        V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
-        V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
+      (I:000000000000 V0:00000101 V1:00000000 V2:00000000 V3:00000000 V4:00000000
+       V5:00000000 V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000
+       V11:00000000 V12:00000000 V13:00000000 V14:00000000 V15:00000000) |}]
 ;;
 
 let%expect_test "test skip if equal on non-equal value" =
@@ -215,10 +213,9 @@ let%expect_test "test skip if equal on non-equal value" =
     {|
       "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 516) (error 0))
-      (as_strings
-       (V0:00000100 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
-        V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
-        V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
+      (I:000000000000 V0:00000100 V1:00000000 V2:00000000 V3:00000000 V4:00000000
+       V5:00000000 V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000
+       V11:00000000 V12:00000000 V13:00000000 V14:00000000 V15:00000000) |}]
 ;;
 
 let%expect_test "test skip if not equal on equal value" =
@@ -237,10 +234,9 @@ let%expect_test "test skip if not equal on equal value" =
     {|
       "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 516) (error 0))
-      (as_strings
-       (V0:00000101 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
-        V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
-        V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
+      (I:000000000000 V0:00000101 V1:00000000 V2:00000000 V3:00000000 V4:00000000
+       V5:00000000 V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000
+       V11:00000000 V12:00000000 V13:00000000 V14:00000000 V15:00000000) |}]
 ;;
 
 let%expect_test "test skip if v0 = v1 when v0 = v1" =
@@ -259,10 +255,9 @@ let%expect_test "test skip if v0 = v1 when v0 = v1" =
     {|
       "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 520) (error 0))
-      (as_strings
-       (V0:00000101 V1:00000101 V2:00000000 V3:00000000 V4:00000000 V5:00000000
-        V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
-        V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
+      (I:000000000000 V0:00000101 V1:00000101 V2:00000000 V3:00000000 V4:00000000
+       V5:00000000 V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000
+       V11:00000000 V12:00000000 V13:00000000 V14:00000000 V15:00000000) |}]
 ;;
 
 let%expect_test "test skip if v0 = v1 when v0 <> v1" =
@@ -281,10 +276,9 @@ let%expect_test "test skip if v0 = v1 when v0 <> v1" =
     {|
       "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 518) (error 0))
-      (as_strings
-       (V0:00000100 V1:00000101 V2:00000000 V3:00000000 V4:00000000 V5:00000000
-        V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
-        V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
+      (I:000000000000 V0:00000100 V1:00000101 V2:00000000 V3:00000000 V4:00000000
+       V5:00000000 V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000
+       V11:00000000 V12:00000000 V13:00000000 V14:00000000 V15:00000000) |}]
 ;;
 
 let%expect_test "add 5 to v0 twices" =
@@ -298,10 +292,9 @@ let%expect_test "add 5 to v0 twices" =
     {|
       "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 516) (error 0))
-      (as_strings
-       (V0:00001010 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
-        V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
-        V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
+      (I:000000000000 V0:00001010 V1:00000000 V2:00000000 V3:00000000 V4:00000000
+       V5:00000000 V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000
+       V11:00000000 V12:00000000 V13:00000000 V14:00000000 V15:00000000) |}]
 ;;
 
 let%expect_test "assign 4 to v0 then add 5 to v0" =
@@ -315,10 +308,9 @@ let%expect_test "assign 4 to v0 then add 5 to v0" =
     {|
       "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 516) (error 0))
-      (as_strings
-       (V0:00001001 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
-        V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
-        V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
+      (I:000000000000 V0:00001001 V1:00000000 V2:00000000 V3:00000000 V4:00000000
+       V5:00000000 V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000
+       V11:00000000 V12:00000000 V13:00000000 V14:00000000 V15:00000000) |}]
 ;;
 
 let%expect_test "assign 2 to v1 then assign v0 to v1" =
@@ -332,10 +324,9 @@ let%expect_test "assign 2 to v1 then assign v0 to v1" =
     {|
       "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 516) (error 0))
-      (as_strings
-       (V0:00000010 V1:00000010 V2:00000000 V3:00000000 V4:00000000 V5:00000000
-        V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
-        V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
+      (I:000000000000 V0:00000010 V1:00000010 V2:00000000 V3:00000000 V4:00000000
+       V5:00000000 V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000
+       V11:00000000 V12:00000000 V13:00000000 V14:00000000 V15:00000000) |}]
 ;;
 
 let%expect_test "assign 2 to v1 then assign 1 to v0 then or them" =
@@ -351,10 +342,9 @@ let%expect_test "assign 2 to v1 then assign 1 to v0 then or them" =
     {|
       "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 518) (error 0))
-      (as_strings
-       (V0:00000011 V1:00000001 V2:00000000 V3:00000000 V4:00000000 V5:00000000
-        V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
-        V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
+      (I:000000000000 V0:00000011 V1:00000001 V2:00000000 V3:00000000 V4:00000000
+       V5:00000000 V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000
+       V11:00000000 V12:00000000 V13:00000000 V14:00000000 V15:00000000) |}]
 ;;
 
 let%expect_test "assign 2 to v1 then assign 3 to v0 then and them" =
@@ -370,13 +360,12 @@ let%expect_test "assign 2 to v1 then assign 3 to v0 then and them" =
     {|
       "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 518) (error 0))
-      (as_strings
-       (V0:00000001 V1:00000001 V2:00000000 V3:00000000 V4:00000000 V5:00000000
-        V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
-        V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
+      (I:000000000000 V0:00000001 V1:00000001 V2:00000000 V3:00000000 V4:00000000
+       V5:00000000 V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000
+       V11:00000000 V12:00000000 V13:00000000 V14:00000000 V15:00000000) |}]
 ;;
 
-let%expect_test "assign 2 to v1 then assign 3 to v0 then xor them" =
+let%expect_test "assign 1 to v1 then assign 3 to v0 then xor them" =
   let pc, error, registers =
     test
       ~opcodes:[ assign_v1_1; assign_v0_3; xor_v0_v1 ]
@@ -389,11 +378,29 @@ let%expect_test "assign 2 to v1 then assign 3 to v0 then xor them" =
     {|
       "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 518) (error 0))
-      (as_strings
-       (V0:00000010 V1:00000001 V2:00000000 V3:00000000 V4:00000000 V5:00000000
-        V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
-        V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
+      (I:000000000000 V0:00000010 V1:00000001 V2:00000000 V3:00000000 V4:00000000
+       V5:00000000 V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000
+       V11:00000000 V12:00000000 V13:00000000 V14:00000000 V15:00000000) |}]
 ;;
+
+let%expect_test "assign 1 to v1 then increment i by v1" =
+  let pc, error, registers =
+    test
+      ~opcodes:[ assign_v1_1; add_i_by_v1 ]
+      ~stop_when:(bounded_standard_stop ())
+  in
+  let pc, error = Bits.to_int pc, Bits.to_int error in
+  Core.print_s [%message (pc : int) (error : int)];
+  print_registers ~registers;
+  [%expect
+    {|
+      "WARN: REMOVE ME WHEN SP IS USED"
+      ((pc 516) (error 0))
+      (I:000000000001 V0:00000000 V1:00000001 V2:00000000 V3:00000000 V4:00000000
+       V5:00000000 V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000
+       V11:00000000 V12:00000000 V13:00000000 V14:00000000 V15:00000000) |}]
+;;
+
 
 let%expect_test "test random state" =
   let pc, error, registers =
@@ -406,8 +413,7 @@ let%expect_test "test random state" =
     {|
       "WARN: REMOVE ME WHEN SP IS USED"
       ((pc 516) (error 0))
-      (as_strings
-       (V0:00000000 V1:00000000 V2:00000000 V3:00000000 V4:00000000 V5:00000000
-        V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000 V11:00000000
-        V12:00000000 V13:00000000 V14:00000000 V15:00000000)) |}]
+      (I:000000000000 V0:00000000 V1:00000000 V2:00000000 V3:00000000 V4:00000000
+       V5:00000000 V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000
+       V11:00000000 V12:00000000 V13:00000000 V14:00000000 V15:00000000) |}]
 ;;
