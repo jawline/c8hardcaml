@@ -464,6 +464,37 @@ let%expect_test "test dump the first three registers" =
        V11:00000000 V12:00000000 V13:00000000 V14:00000000 V15:00000000) |}]
 ;;
 
-(** TODO: Stack pointer CALL and RET tests *)
+let%expect_test "test dump and then load registers" =
+  let pc, error, registers, range =
+    test_with_range
+      ~range:(0, 32)
+      ~opcodes:
+        [ assign_v0_1
+        ; assign_v1_2
+        ; assign_v2_3
+        ; assign_v3_4
+        ; assign_v4_5
+        ; reg_dump_all_registers
+        ; assign_v0_0
+        ; assign_v1_0
+        ; assign_v2_0
+        ; assign_v3_0
+        ; assign_v4_0
+        ; reg_load_all_registers
+        ]
+      ~stop_when:(bounded_standard_stop ())
+  in
+  let pc, error = Bits.to_int pc, Bits.to_int error in
+  Core.print_s [%message (pc : int) (error : int) (range : int array)];
+  print_registers ~registers;
+  [%expect
+    {|
+      ((pc 536) (error 0)
+       (range (1 2 3 4 5 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))
+      (I:000000000000 V0:00000000 V1:00000000 V2:00000000 V3:00000000 V4:00000101
+       V5:00000000 V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000
+       V11:00000000 V12:00000000 V13:00000000 V14:00000000 V15:11100101) |}]
+;;
 
-(** TODO: reg dump / load tests *)
+
+(** TODO: Stack pointer CALL and RET tests *)
