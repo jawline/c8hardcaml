@@ -73,7 +73,9 @@ let memory_instructions
   let reg_memory_step = reg ~width:5 spec in
   let reg_memory_op ~round_fn ~offset_register_by_one_cycle =
     let round_logic =
-      Sequence.range 0 (List.length registers)
+      Sequence.range
+        0
+        (List.length registers + if offset_register_by_one_cycle then 1 else 0)
       |> Sequence.to_list
       |> List.map ~f:(fun n ->
              let register_n = if offset_register_by_one_cycle then n - 1 else n in
@@ -394,6 +396,14 @@ let execute_instruction
     ; when_
         (primary_op ==:. 14)
         [ (* TODO: Key press instructions *) pc <-- pc.value +:. 2; ok ]
-    ; when_ (primary_op ==:. 15) [ memory_instructions ~spec ~ram (proc [ error <--. 0 ]) (proc [ error <--. 0 ; done_ <--. 1 ]) t ]
+    ; when_
+        (primary_op ==:. 15)
+        [ memory_instructions
+            ~spec
+            ~ram
+            (proc [ error <--. 0 ])
+            (proc [ error <--. 0; done_ <--. 1 ])
+            t
+        ]
     ]
 ;;

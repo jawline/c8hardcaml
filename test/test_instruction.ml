@@ -37,7 +37,7 @@ let assign_v3_0 = 0b0110001100000000
 let assign_v4_0 = 0b0110100000000000
 let reg_dump_all_registers = 0b1111_1111_01010101
 let reg_dump_first_three_registers = 0b1111_0010_01010101
-let reg_load_all_registers = 0b1111_1111_1100101
+let reg_load_all_registers = 0b1111_1111_01100101
 
 let bounded_standard_stop ?(max = 1000) () =
   let executed = ref 0 in
@@ -491,10 +491,9 @@ let%expect_test "test dump and then load registers" =
     {|
       ((pc 536) (error 0)
        (range (1 2 3 4 5 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))
-      (I:000000000000 V0:00000000 V1:00000000 V2:00000000 V3:00000000 V4:00000101
+      (I:000000000000 V0:00000001 V1:00000010 V2:00000011 V3:00000100 V4:00000101
        V5:00000000 V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000
-       V11:00000000 V12:00000000 V13:00000000 V14:00000000 V15:11100101) |}]
+       V11:00000000 V12:00000000 V13:00000000 V14:00000000 V15:00000000) |}]
 ;;
-
 
 (** TODO: Stack pointer CALL and RET tests *)
