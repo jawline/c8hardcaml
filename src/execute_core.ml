@@ -55,23 +55,21 @@ let create ~spec ~executing_opcode () =
 ;;
 
 let memory_instructions
-ok 
-    { registers = { pc; i; _ }
-    ; opcode_first_register
-    ; opcode_immediate
-    ; _
-    }
+    ok
+    { registers = { pc; i; _ }; opcode_first_register; opcode_immediate; _ }
   =
   let open Always in
   let open Variable in
-  proc [
-          (* Add VX to I without changing the flags register *)
-          when_ (opcode_immediate ==:. 0x1E) [
-          i <-- (i.value +: (to_addr opcode_first_register.value))
+  proc
+    [ (* Add VX to I without changing the flags register *)
+      when_
+        (opcode_immediate ==:. 0x1E)
+        [ i <-- i.value +: to_addr opcode_first_register.value
         ; pc <-- pc.value +:. 2
         ; ok
-          ]
-  ]
+        ]
+    ]
+;;
 
 let register_instructions
     ok
@@ -311,6 +309,6 @@ let execute_instruction
     ; when_
         (primary_op ==:. 14)
         [ (* TODO: Key press instructions *) pc <-- pc.value +:. 2; ok ]
-        ; when_ (primary_op ==:. 15) [ memory_instructions ok t ]
+    ; when_ (primary_op ==:. 15) [ memory_instructions ok t ]
     ]
 ;;

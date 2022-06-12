@@ -26,7 +26,6 @@ let xor_v0_v1 = 0b1000_0000_0001_0011
 let jump_to_512 = 0b0001001000000000
 let jump_to_1024 = 0b0001010000000000
 let jump_to_1 = 0b0001000000000001
-
 let add_i_by_v1 = 0b1111000100011110
 
 let bounded_standard_stop ?(max = 1000) () =
@@ -59,16 +58,14 @@ let test ~opcodes ~stop_when =
       until ~f:step);
   (* When we stop on done the registers have just been set so run one more cycle so that their new state is reflected in output *)
   sim_cycle_not_programming sim inputs outputs ~print;
-  ( !(outputs.core.registers.pc)
-  , !(outputs.core.executor_error)
-  , outputs.core.registers )
+  !(outputs.core.registers.pc), !(outputs.core.executor_error), outputs.core.registers
 ;;
 
 let print_registers ~(registers : _ C8.Registers.In_circuit.t) =
   let as_strings =
-          [(sprintf "I:%s" (Bits.to_string (!(registers.i))))] @
-    List.mapi registers.registers ~f:(fun i register ->
-        sprintf "V%i:%s" i (Bits.to_string (!register)))
+    [ sprintf "I:%s" (Bits.to_string !(registers.i)) ]
+    @ List.mapi registers.registers ~f:(fun i register ->
+          sprintf "V%i:%s" i (Bits.to_string !register))
   in
   Core.print_s [%message "" ~_:(as_strings : string list)]
 ;;
@@ -385,9 +382,7 @@ let%expect_test "assign 1 to v1 then assign 3 to v0 then xor them" =
 
 let%expect_test "assign 1 to v1 then increment i by v1" =
   let pc, error, registers =
-    test
-      ~opcodes:[ assign_v1_1; add_i_by_v1 ]
-      ~stop_when:(bounded_standard_stop ())
+    test ~opcodes:[ assign_v1_1; add_i_by_v1 ] ~stop_when:(bounded_standard_stop ())
   in
   let pc, error = Bits.to_int pc, Bits.to_int error in
   Core.print_s [%message (pc : int) (error : int)];
@@ -400,7 +395,6 @@ let%expect_test "assign 1 to v1 then increment i by v1" =
        V5:00000000 V6:00000000 V7:00000000 V8:00000000 V9:00000000 V10:00000000
        V11:00000000 V12:00000000 V13:00000000 V14:00000000 V15:00000000) |}]
 ;;
-
 
 let%expect_test "test random state" =
   let pc, error, registers =
