@@ -37,14 +37,14 @@ let programming_mode ~(ram : Main_memory.t) (i : _ I.t) =
     ]
 ;;
 
-let create (i : _ I.t) : _ O.t =
+let create ~spec (i : _ I.t) : _ O.t =
   let open Always in
   let ram = Main_memory.create () in
   let enable = wire_false () in
   let core, core_wiring =
     Main_memory.circuit_with_memory ram ~f:(fun ~memory ->
         let core =
-          Cpu_core.create { Cpu_core.I.clear; clock; enable = enable.value; memory }
+          Cpu_core.create ~spec { Cpu_core.I.clear; clock; enable = enable.value; memory }
         in
         core, core.memory)
   in

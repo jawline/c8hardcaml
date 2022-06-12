@@ -4,22 +4,21 @@ open Signal
 open Always
 open Global
 
-(** A helper module to propagate wires that set the read and write
+(* A helper module to propagate wires that set the read and write
     data lines in board RAM. *)
 
 let ram_size = 4096
-(** The stack stores return locations only. A size of 2x128 = 128 nested calls before
+
+(* The stack stores return locations only. A size of 2x128 = 128 nested calls before
     a stack overflow. *)
-let stack_size = (2 * 128)
+let stack_size = 2 * 128
 
 (** One bit per pixel in a 64x32 display *)
 let frame_buffer_size = screen_width * screen_height / 8
 
 let memory_size = ram_size + stack_size + frame_buffer_size
-
 let stack_start = ram_size
 let framebuffer_start = ram_size + stack_size
-
 
 type main_memory =
   { write_enable : Always.Variable.t
@@ -87,7 +86,7 @@ let machine_ram ~write_enable ~write_address ~write_data ~read_address =
   let read_ports =
     Ram.create
       ~collision_mode:Read_before_write
-      ~size:(memory_size)
+      ~size:memory_size
       ~write_ports:[| { write_enable; write_address; write_data; write_clock = clock } |]
       ~read_ports:[| { read_enable = vdd; read_address; read_clock = clock } |]
       ()

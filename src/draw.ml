@@ -145,21 +145,21 @@ module Test = struct
     test ~cycles:16 ~x:12 ~y:5 ~n:4 ~i:231;
     [%expect
       {|
-      Finished: 0 Step: 0 Read Step: 0 Read addr: 0  Write addr: 4137 0 1
+      Finished: 0 Step: 0 Read Step: 0 Read addr: 0  Write addr: 4393 0 1
       Finished: 0 Step: 1 Read Step: 1 Read addr: 232  Write addr: 0 0 0
-      Finished: 0 Step: 1 Read Step: 0 Read addr: 0  Write addr: 4145 0 1
+      Finished: 0 Step: 1 Read Step: 0 Read addr: 0  Write addr: 4401 0 1
       Finished: 0 Step: 2 Read Step: 1 Read addr: 233  Write addr: 0 0 0
-      Finished: 0 Step: 2 Read Step: 0 Read addr: 0  Write addr: 4153 0 1
+      Finished: 0 Step: 2 Read Step: 0 Read addr: 0  Write addr: 4409 0 1
       Finished: 0 Step: 3 Read Step: 1 Read addr: 234  Write addr: 0 0 0
-      Finished: 0 Step: 3 Read Step: 0 Read addr: 0  Write addr: 4161 0 1
+      Finished: 0 Step: 3 Read Step: 0 Read addr: 0  Write addr: 4417 0 1
       Finished: 0 Step: 4 Read Step: 1 Read addr: 235  Write addr: 0 0 0
-      Finished: 0 Step: 4 Read Step: 0 Read addr: 0  Write addr: 4169 0 1
+      Finished: 0 Step: 4 Read Step: 0 Read addr: 0  Write addr: 4425 0 1
       Finished: 1 Step: 5 Read Step: 0 Read addr: 0  Write addr: 0 0 0
       Finished: 0 Step: 0 Read Step: 1 Read addr: 231  Write addr: 0 0 0
-      Finished: 0 Step: 0 Read Step: 0 Read addr: 0  Write addr: 4137 0 1
+      Finished: 0 Step: 0 Read Step: 0 Read addr: 0  Write addr: 4393 0 1
       Finished: 0 Step: 1 Read Step: 1 Read addr: 232  Write addr: 0 0 0
-      Finished: 0 Step: 1 Read Step: 0 Read addr: 0  Write addr: 4145 0 1
+      Finished: 0 Step: 1 Read Step: 0 Read addr: 0  Write addr: 4401 0 1
       Finished: 0 Step: 2 Read Step: 1 Read addr: 233  Write addr: 0 0 0
-      Finished: 0 Step: 2 Read Step: 0 Read addr: 0  Write addr: 4153 0 1 |}]
+      Finished: 0 Step: 2 Read Step: 0 Read addr: 0  Write addr: 4409 0 1 |}]
   ;;
 end

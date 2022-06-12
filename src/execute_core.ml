@@ -9,12 +9,12 @@ type t =
     primary_op : Signal.t
   ; register_zero : Always.Variable.t
   ; flag_register : Always.Variable.t
-  ; (* If this opcode has a 12-bit pointer this signal will be equal to it *)
-    opcode_address : Signal.t
+        (** If this opcode has a 12-bit pointer this signal will be equal to it *)
+  ; opcode_address : Signal.t
   ; (* If the opcode contains an immediate value in the final 8 bits this signal will be equal to it *)
     opcode_immediate : Signal.t
-  ; (* The final nibble in the opcode *)
-    opcode_final_nibble : Signal.t
+  ; opcode_second_nibble : Signal.t
+  ; opcode_final_nibble : Signal.t
   ; (* If the opcode refers to a register in the second nibble this signal will be equal to it *)
     opcode_first_register : Target_register.t
   ; (* If the opcode refers to a register in the third nibble this signal will be equal to it *)
@@ -32,6 +32,7 @@ let create ~spec ~executing_opcode () =
   let opcode_address = select executing_opcode 11 0 in
   let opcode_immediate = select executing_opcode 7 0 in
   let opcode_final_nibble = select executing_opcode 3 0 in
+  let opcode_second_nibble = select executing_opcode 11 8 in
   let opcode_first_register =
     Target_register.create ~registers:registers.registers (select executing_opcode 11 8)
   in
@@ -46,6 +47,7 @@ let create ~spec ~executing_opcode () =
   ; primary_op
   ; opcode_address
   ; opcode_immediate
+  ; opcode_second_nibble
   ; opcode_final_nibble
   ; opcode_first_register
   ; opcode_second_register
@@ -55,19 +57,72 @@ let create ~spec ~executing_opcode () =
 ;;
 
 let memory_instructions
+    ~spec
+    ~(ram : Main_memory.t)
     ok
-    { registers = { pc; i; _ }; opcode_first_register; opcode_immediate; _ }
+    done_with_instruction
+    { registers = { pc; i; registers; _ }
+    ; opcode_first_register
+    ; opcode_second_nibble
+    ; opcode_immediate
+    ; _
+    }
   =
   let open Always in
   let open Variable in
+  let reg_memory_step = reg ~width:5 spec in
+  let reg_memory_op ~round_fn ~offset_register_by_one_cycle =
+    let round_logic =
+      Sequence.range 0 (List.length registers)
+      |> Sequence.to_list
+      |> List.map ~f:(fun n ->
+             let register_n = if offset_register_by_one_cycle then n - 1 else n in
+             let round_register = List.nth registers register_n in
+             let i = i.value +:. n in
+             proc [ when_ (reg_memory_step.value ==:. n) [ round_fn i round_register ] ])
+      |> proc
+    in
+    let final_step =
+      uresize opcode_second_nibble 5 +:. if offset_register_by_one_cycle then 1 else 0
+    in
+    proc
+      [ ok
+      ; reg_memory_step <-- reg_memory_step.value +:. 1
+      ; round_logic
+      ; when_
+          (reg_memory_step.value ==: final_step)
+          [ reg_memory_step <--. 0; pc <-- pc.value +:. 2; done_with_instruction ]
+      ]
+  in
+  let reg_dump =
+    reg_memory_op ~offset_register_by_one_cycle:false ~round_fn:(fun i register ->
+        let register = Option.value_exn register in
+        proc
+          [ ram.write_enable <--. 1
+          ; ram.write_address <-- to_main_addr i
+          ; ram.write_data <-- register.value
+          ])
+  in
+  let reg_load =
+    reg_memory_op ~offset_register_by_one_cycle:true ~round_fn:(fun i register ->
+        let read_i_for_next_round = proc [ ram.read_address <-- to_main_addr i ] in
+        let store_last_round_in_register =
+          match register with
+          | Some v -> proc [ v <-- ram.read_data ]
+          | None -> proc []
+        in
+        proc [ read_i_for_next_round; store_last_round_in_register ])
+  in
   proc
     [ (* Add VX to I without changing the flags register *)
       when_
         (opcode_immediate ==:. 0x1E)
         [ i <-- i.value +: to_addr opcode_first_register.value
         ; pc <-- pc.value +:. 2
-        ; ok
+        ; done_with_instruction
         ]
+    ; when_ (opcode_immediate ==:. 0x55) [ reg_dump ]
+    ; when_ (opcode_immediate ==:. 0x65) [ reg_load ]
     ]
 ;;
 
@@ -226,14 +281,44 @@ let combine_register_imm
     ]
 ;;
 
+let call_instruction
+    ~spec
+    ~(ram : Main_memory.t)
+    ok
+    { registers = { pc; sp; _ }; opcode_address; _ }
+  =
+  let open Always in
+  let step = Variable.reg ~width:1 spec in
+  let next_pc = pc.value +:. 2 in
+  proc
+    [ step <-- step.value +:. 1
+    ; when_
+        (step.value ==:. 0)
+        [ ram.write_enable <--. 1
+        ; ram.write_address <-- to_main_addr (sp.value +:. Main_memory.stack_start)
+        ; ram.write_data <-- select next_pc 11 4
+        ]
+    ; when_
+        (step.value ==:. 1)
+        [ ram.write_enable <--. 1
+        ; ram.write_address <-- to_main_addr (sp.value +:. (Main_memory.stack_start + 1))
+        ; ram.write_data <-- uresize (select next_pc 3 0) (Sized.size `Byte)
+        ; sp <-- sp.value +:. 2
+        ; pc <-- opcode_address
+        ; ok
+        ]
+    ]
+;;
+
 let execute_instruction
+    ~spec
     ~clock
     ~clear
     ~error
     ~done_
     ~ram
     ~(random_state : _ Xor_shift.O.t)
-    ({ registers = { pc; i; sp; _ }
+    ({ registers = { pc; i; _ }
      ; primary_op
      ; opcode_first_register
      ; opcode_second_register
@@ -258,8 +343,6 @@ let execute_instruction
         in
         o, o.memory)
   in
-  Core.print_s [%message "WARN: REMOVE ME WHEN SP IS USED"];
-  compile [ sp <--. 0 ];
   let ok = proc [ error <--. 0; done_ <--. 1 ] in
   (* TODO: Replace hardcoded constants with names *)
   proc
@@ -269,6 +352,8 @@ let execute_instruction
       when_ (primary_op ==:. 0) [ no_op ok t ]
     ; (* Jump to the 12 bits at the end of the opcode *)
       when_ (primary_op ==:. 1) [ assign_address pc ok t ]
+    ; (* Push (PC + 2) to the stack and then jump to the 12 bits at the end of the opcode *)
+      when_ (primary_op ==:. 2) [ error <--. 0; call_instruction ~spec ~ram ok t ]
     ; (* Skip the next instruction of register is equal to immediate *)
       when_ (primary_op ==:. 3) [ skip_imm_inv ( ==: ) ok t ]
     ; (* Skip the next instruction of register is not equal to immediate (dual of the opcode above) *)
@@ -309,6 +394,6 @@ let execute_instruction
     ; when_
         (primary_op ==:. 14)
         [ (* TODO: Key press instructions *) pc <-- pc.value +:. 2; ok ]
-    ; when_ (primary_op ==:. 15) [ memory_instructions ok t ]
+    ; when_ (primary_op ==:. 15) [ memory_instructions ~spec ~ram (proc [ error <--. 0 ]) (proc [ error <--. 0 ; done_ <--. 1 ]) t ]
     ]
 ;;

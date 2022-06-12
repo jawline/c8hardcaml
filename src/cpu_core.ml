@@ -57,7 +57,7 @@ let startup
   ]
 ;;
 
-let create { I.clear; clock; enable; memory } : _ O.t =
+let create ~spec { I.clear; clock; enable; memory } : _ O.t =
   let open Always in
   let open Variable in
   let ram = Main_memory.Wires.t_of_in_circuit memory in
@@ -65,18 +65,14 @@ let create { I.clear; clock; enable; memory } : _ O.t =
   let random_state =
     Xor_shift.create { Xor_shift.I.clock; clear; seed = random_state_seed.value }
   in
-  let executing_opcode =
-    Immediate_register.create ~spec:r_sync ~width:(Sized.size `Opcode)
-  in
-  let error = reg ~enable:vdd ~width:1 r_sync in
+  let executing_opcode = Immediate_register.create ~spec ~width:(Sized.size `Opcode) in
+  let error = reg ~enable:vdd ~width:1 spec in
   let done_ = wire_false () in
   let in_execute = wire ~default:(Signal.of_int ~width:1 0) in
   let in_fetch = wire ~default:(Signal.of_int ~width:1 0) in
-  let internal =
-    Execute_core.create ~executing_opcode:executing_opcode.value ~spec:r_sync ()
-  in
-  let state = State_machine.create (module States) ~enable:vdd r_sync in
-  let last_op = reg ~enable:vdd ~width:16 r_sync in
+  let internal = Execute_core.create ~executing_opcode:executing_opcode.value ~spec () in
+  let state = State_machine.create (module States) ~enable:vdd spec in
+  let last_op = reg ~enable:vdd ~width:16 spec in
   let fetch, fetch_wiring =
     Main_memory.circuit_with_just_read_memory ram ~f:(fun ~memory ->
         let o =
@@ -110,6 +106,7 @@ let create { I.clear; clock; enable; memory } : _ O.t =
         (in_execute.value ==:. 1)
         [ last_op <-- executing_opcode.value
         ; Execute_core.execute_instruction
+            ~spec
             ~clock
             ~clear
             ~error

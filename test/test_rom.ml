@@ -2,11 +2,12 @@ open Core
 open Async
 open Hardcaml
 open C8.Programmable_cpu_core
+open C8.Global
 open Helper
 
 let test ~cycles ~rom_file ~create ~print_on_cycle ~print_on_exit =
   let module Simulator = Cyclesim.With_interface (I) (O) in
-  let sim = Simulator.create create in
+  let sim = Simulator.create (create ~spec:r_sync) in
   let inputs : _ I.t = Cyclesim.inputs sim in
   let outputs : _ O.t = Cyclesim.outputs sim in
   (* Write the test rom to main memory *)
@@ -26,23 +27,22 @@ let%expect_test "Particle" =
   test ~print_on_exit:true ~print_on_cycle:false ~cycles:60_000 ~rom_file ~create;
   [%expect
     {|
-      "WARN: REMOVE ME WHEN SP IS USED"
       ((core
-        ((in_execute 1) (in_fetch 0) (op 0010001010011100)
-         (working_op 0010001000000000)
+        ((in_execute 1) (in_fetch 0) (op 1000000000001110)
+         (working_op 1000000000101011)
          (registers
-          ((pc 001010111100) (i 001101011001) (sp 00000000000000000000000000000000)
+          ((pc 001010101110) (i 001100000000) (sp 000000000010)
            (registers
-            (00111000 00000000 00001000 00000000 00000000 00000000 00000101
-             00000010 00000000 00000000 00000000 00000000 00000000 00000000
+            (00100000 00011110 11111000 00000000 00011111 00000000 00000101
+             00000010 00000000 00000000 00000001 00000000 00000000 00000000
              00000000 00000000))))
-         (fetch_finished 0) (fetch_cycle 00) (last_op 0010001010011100)
+         (fetch_finished 0) (fetch_cycle 00) (last_op 1000000000001110)
          (executor_done 0) (executor_error 1)
          (memory
           ((read_address 0000000000000000) (write_enable 0)
            (write_address 0000000000000000) (write_data 00000000)))
          (random_state 10111011)))
-       (read_data 00000000))
+       (read_data 00101011))
       Framebuffer
       .***.***.***...*.*****...******..***..**.....**..*..****.****.**
       ..**.......**.**.*..**.*...**......**.**.....**..**....*........
@@ -76,23 +76,22 @@ let%expect_test "Particle" =
       ................................................................
       ................................................................
       ................................................................
-      "WARN: REMOVE ME WHEN SP IS USED"
       ((core
-        ((in_execute 1) (in_fetch 0) (op 0010001010011100)
-         (working_op 0010001000000000)
+        ((in_execute 1) (in_fetch 0) (op 1000000000001110)
+         (working_op 1000000000101011)
          (registers
-          ((pc 001010111100) (i 001101011001) (sp 00000000000000000000000000000000)
+          ((pc 001010101110) (i 001100000000) (sp 000000000010)
            (registers
-            (00111000 00000000 00001000 00000000 00000000 00000000 00000101
-             00000010 00000000 00000000 00000000 00000000 00000000 00000000
+            (00100000 00011110 11111000 00000000 00011111 00000000 00000101
+             00000010 00000000 00000000 00000001 00000000 00000000 00000000
              00000000 00000000))))
-         (fetch_finished 0) (fetch_cycle 00) (last_op 0010001010011100)
+         (fetch_finished 0) (fetch_cycle 00) (last_op 1000000000001110)
          (executor_done 0) (executor_error 1)
          (memory
           ((read_address 0000000000000000) (write_enable 0)
            (write_address 0000000000000000) (write_data 00000000)))
          (random_state 00110110)))
-       (read_data 00000000))
+       (read_data 00101011))
       Framebuffer
       .***.***.***...*.*****...******..***..**.....**..*..****.****.**
       ..**.......**.**.*..**.*...**......**.**.....**..**....*........
@@ -134,12 +133,11 @@ let%expect_test "Maze" =
   test ~print_on_exit:true ~print_on_cycle:false ~cycles:30_000 ~rom_file ~create;
   [%expect
     {|
-    "WARN: REMOVE ME WHEN SP IS USED"
     ((core
       ((in_execute 0) (in_fetch 1) (op 0001001000011100)
        (working_op 0001001000010010)
        (registers
-        ((pc 001000011100) (i 001000100010) (sp 00000000000000000000000000000000)
+        ((pc 001000011100) (i 001000100010) (sp 000000000000)
          (registers
           (00000000 00100000 00000001 00000000 00000000 00000000 00000000
            00000000 00000000 00000000 00000000 00000000 00000000 00000000
@@ -192,23 +190,22 @@ let%expect_test "Blinky" =
   test ~print_on_exit:true ~print_on_cycle:false ~cycles:100_000 ~rom_file ~create;
   [%expect
     {|
-      "WARN: REMOVE ME WHEN SP IS USED"
       ((core
-        ((in_execute 1) (in_fetch 0) (op 1111000101010101)
-         (working_op 1111000100000000)
+        ((in_execute 1) (in_fetch 0) (op 1000000100001110)
+         (working_op 1000000100100010)
          (registers
-          ((pc 001000100000) (i 100011001000) (sp 00000000000000000000000000000000)
+          ((pc 011111000010) (i 110100110000) (sp 000000000100)
            (registers
             (00000000 00000000 00000000 00000000 00000000 00000000 00000000
              00000000 00000000 00000000 00000000 00000000 00000000 00000000
-             00000000 00000000))))
-         (fetch_finished 0) (fetch_cycle 00) (last_op 1111000101010101)
+             00001111 00000000))))
+         (fetch_finished 0) (fetch_cycle 00) (last_op 1000000100001110)
          (executor_done 0) (executor_error 1)
          (memory
           ((read_address 0000000000000000) (write_enable 0)
            (write_address 0000000000000000) (write_data 00000000)))
          (random_state 10110100)))
-       (read_data 00000000))
+       (read_data 00100010))
       Framebuffer
       ................................................................
       ................................................................

@@ -7,7 +7,7 @@ module In_circuit = struct
     { pc : 'a [@bits 12]
     ; i : 'a [@bits 12]
     ; sp : 'a
-          [@bits 32]
+          [@bits 12]
           (* Rename these to Vn or some other name to separate it from the module name? *)
     ; registers : 'a list [@length 16] [@bits 8]
     }
@@ -27,7 +27,7 @@ let create ~spec =
     Variable.(
       let pc = reg ~enable:vdd ~width:12 spec in
       let i = reg ~enable:vdd ~width:12 spec in
-      let sp = reg ~enable:vdd ~width:32 spec in
+      let sp = reg ~enable:vdd ~width:12 spec in
       let registers = List.init 16 ~f:(fun _ -> reg ~enable:vdd ~width:8 spec) in
       { pc; i; sp; registers }))
 ;;
