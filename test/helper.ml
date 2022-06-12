@@ -30,6 +30,12 @@ let sim_set_write_ram sim (i : _ I.t) addr data =
 
 let sim_disable_programming (i : _ I.t) = i.program := Bits.of_int ~width:1 0
 
+let sim_program_machine_rom sim (i : _ I.t) =
+  (* Program font data into RAM before programming the ROM we read from disk *)
+  Array.iteri C8.Main_memory.machine_rom ~f:(fun addr word ->
+      sim_set_write_ram sim i (C8.Main_memory.machine_rom_offset + addr) word)
+;;
+
 let sim_program_rom sim (i : _ I.t) ~rom =
   List.iteri rom ~f:(fun addr value ->
       sim_set_write_ram sim i (addr + program_start_offset) value);

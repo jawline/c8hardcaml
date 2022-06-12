@@ -22,9 +22,10 @@ type t =
   ; (* 9-bit sized target registers to hold the carry TODO: Could be improved / merged into target register *)
     opcode_first_register_9bit : Signal.t
   ; opcode_second_register_9bit : Signal.t
+  ; keys : Signal.t Keys.t
   }
 
-let create ~spec ~executing_opcode () =
+let create ~spec ~keys ~executing_opcode () =
   let registers = Registers.create ~spec in
   let primary_op = select executing_opcode 15 12 in
   let register_zero = List.nth_exn registers.registers 0x0 in
@@ -53,7 +54,44 @@ let create ~spec ~executing_opcode () =
   ; opcode_second_register
   ; opcode_first_register_9bit
   ; opcode_second_register_9bit
+  ; keys
   }
+;;
+
+let key_instructions
+    ok
+    done_with_instruction
+    { registers = { pc; _ }; opcode_first_register; opcode_immediate; keys; _ }
+  =
+  let open Always in
+  let open Variable in
+  let key_under_vx = wire_false () in
+  proc
+    [ (* One-hot encode the key under Vx *)
+      List.mapi keys.state ~f:(fun i key ->
+          proc [ when_ (opcode_first_register.value ==:. i) [ key_under_vx <-- key ] ])
+      |> proc
+    ; when_
+        (opcode_immediate ==:. 0x9E)
+        [ (* Skip if Keys[Vx] is pressed *)
+          ok
+        ; done_with_instruction
+        ; if_
+            (key_under_vx.value ==:. 1)
+            [ pc <-- pc.value +:. 4 ]
+            [ pc <-- pc.value +:. 2 ]
+        ]
+    ; when_
+        (opcode_immediate ==:. 0xA1)
+        [ (* Skip if Keys[Vx] is not pressed *)
+          ok
+        ; done_with_instruction
+        ; if_
+            (key_under_vx.value ==:. 1)
+            [ pc <-- pc.value +:. 2 ]
+            [ pc <-- pc.value +:. 4 ]
+        ]
+    ]
 ;;
 
 let memory_instructions
@@ -120,6 +158,16 @@ let memory_instructions
       when_
         (opcode_immediate ==:. 0x1E)
         [ i <-- i.value +: to_addr opcode_first_register.value
+        ; pc <-- pc.value +:. 2
+        ; done_with_instruction
+        ]
+    ; when_
+        (opcode_immediate ==:. 0x29)
+        [ i
+          <-- select
+                (to_addr opcode_first_register.value *: Signal.of_int ~width:12 5)
+                11
+                0
         ; pc <-- pc.value +:. 2
         ; done_with_instruction
         ]
@@ -217,9 +265,9 @@ let register_instructions
         ; pc <-- pc.value +:. 2
         ; ok
         ]
-    ; (* Sll register by 1 *)
+    ; (* Sll register by 1 and store msb in carry *)
       when_
-        (opcode_final_nibble ==:. 8)
+        (opcode_final_nibble ==:. 0xE)
         [ Target_register.assign opcode_first_register (sll opcode_first_register.value 1)
         ; flag_register <-- uresize (msb opcode_first_register.value) 8
         ; pc <-- pc.value +:. 2
@@ -395,7 +443,8 @@ let execute_instruction
         ]
     ; when_
         (primary_op ==:. 14)
-        [ (* TODO: Key press instructions *) pc <-- pc.value +:. 2; ok ]
+        [ key_instructions (proc [ error <--. 0 ]) (proc [ error <--. 0; done_ <--. 1 ]) t
+        ]
     ; when_
         (primary_op ==:. 15)
         [ memory_instructions

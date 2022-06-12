@@ -15,6 +15,7 @@ module I = struct
     ; program_write_enable : 'a [@bits 1]
     ; program_address : 'a [@bits 16]
     ; program_data : 'a [@bits 8]
+    ; keys : 'a Keys.t
     }
   [@@deriving sexp_of, hardcaml]
 end
@@ -44,7 +45,9 @@ let create ~spec (i : _ I.t) : _ O.t =
   let core, core_wiring =
     Main_memory.circuit_with_memory ram ~f:(fun ~memory ->
         let core =
-          Cpu_core.create ~spec { Cpu_core.I.clear; clock; enable = enable.value; memory }
+          Cpu_core.create
+            ~spec
+            { Cpu_core.I.clear; clock; enable = enable.value; memory; keys = i.keys }
         in
         core, core.memory)
   in

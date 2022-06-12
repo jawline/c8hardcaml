@@ -22,6 +22,7 @@ module I = struct
     ; clear : 'a [@bits 1]
     ; enable : 'a [@bits 1]
     ; memory : 'a Main_memory.In_circuit.I.t
+    ; keys : 'a Keys.t
     }
   [@@deriving sexp_of, hardcaml]
 end
@@ -57,7 +58,7 @@ let startup
   ]
 ;;
 
-let create ~spec { I.clear; clock; enable; memory } : _ O.t =
+let create ~spec { I.clear; clock; enable; memory; keys } : _ O.t =
   let open Always in
   let open Variable in
   let ram = Main_memory.Wires.t_of_in_circuit memory in
@@ -70,7 +71,9 @@ let create ~spec { I.clear; clock; enable; memory } : _ O.t =
   let done_ = wire_false () in
   let in_execute = wire ~default:(Signal.of_int ~width:1 0) in
   let in_fetch = wire ~default:(Signal.of_int ~width:1 0) in
-  let internal = Execute_core.create ~executing_opcode:executing_opcode.value ~spec () in
+  let internal =
+    Execute_core.create ~executing_opcode:executing_opcode.value ~keys ~spec ()
+  in
   let state = State_machine.create (module States) ~enable:vdd spec in
   let last_op = reg ~enable:vdd ~width:16 spec in
   let fetch, fetch_wiring =
