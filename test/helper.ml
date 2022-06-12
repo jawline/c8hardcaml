@@ -31,7 +31,8 @@ let sim_set_write_ram sim (i : _ I.t) addr data =
 let sim_disable_programming (i : _ I.t) = i.program := Bits.of_int ~width:1 0
 
 let sim_program_rom sim (i : _ I.t) ~rom =
-  List.iteri rom ~f:(fun addr value -> sim_set_write_ram sim i (addr + program_start_offset) value);
+  List.iteri rom ~f:(fun addr value ->
+      sim_set_write_ram sim i (addr + program_start_offset) value);
   sim_disable_programming i
 ;;
 

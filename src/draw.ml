@@ -23,8 +23,8 @@ module I = struct
     ; enable : 'a [@bits 1]
     ; x : 'a [@bits 8]
     ; y : 'a [@bits 8]
-    ; n : 'a [@bits 8]
-    ; i : 'a [@bits 16]
+    ; n : 'a [@bits 4]
+    ; i : 'a [@bits 12]
     ; memory : 'a Main_memory.In_circuit.I.t
     }
   [@@deriving sexp_of, hardcaml]
@@ -33,6 +33,8 @@ end
 module O = struct
   type 'a t =
     { finished : 'a [@bits 1]
+    ; step : 'a [@bits 12]
+    ; read : 'a [@bits 1]
     ; memory : 'a Main_memory.In_circuit.O.t
     }
   [@@deriving sexp_of, hardcaml]
@@ -53,6 +55,7 @@ let create ~spec (i : _ I.t) =
   let write_address = wire ~default:(Signal.of_int ~width:(Sized.size `Main_address) 0) in
   let write_data = wire ~default:(Signal.of_int ~width:(Sized.size `Byte) 0) in
   let read_address = wire ~default:(Signal.of_int ~width:(Sized.size `Main_address) 0) in
+  let read = wire ~default:(Signal.of_int ~width:1 0) in
   (* Step calculates the current depth into the draw operation *)
   let step = Variable.reg ~enable:vdd ~width:(Sized.size `Address) spec in
   let framebuffer_address =
@@ -64,7 +67,10 @@ let create ~spec (i : _ I.t) =
     framebuffer_offset +:. Main_memory.framebuffer_start
   in
   let read_step =
-    [ read_address <-- to_main_addr (i_register +: step.value); state.set_next Write ]
+    [ read <--. 1
+    ; read_address <-- to_main_addr (i_register +: step.value)
+    ; state.set_next Write
+    ]
   in
   let write_step =
     [ step <-- step.value +:. 1
@@ -83,9 +89,11 @@ let create ~spec (i : _ I.t) =
   compile
     [ when_
         i.enable
-        [ if_ (step.value +:. 1 ==: n) [ set_finished_and_reset ] [ step_draw ] ]
+        [ if_ (step.value ==: n +:. 1) [ set_finished_and_reset ] [ step_draw ] ]
     ];
   { O.finished = finished.value
+  ; step = step.value
+  ; read = read.value
   ; memory =
       Main_memory.In_circuit.O.always_create
         ~read_address
@@ -98,38 +106,60 @@ let create ~spec (i : _ I.t) =
 module Test = struct
   let cycle sim (_o : _ O.t) = Cyclesim.cycle sim
 
-  let test ~cycles:_ =
+  let test ~cycles ~x ~y ~n ~i =
     let module Simulator = Cyclesim.With_interface (I) (O) in
     let sim = Simulator.create (create ~spec:r_sync) in
-    let _inputs : _ I.t = Cyclesim.inputs sim in
-    let _outputs : _ O.t = Cyclesim.outputs sim in
+    let inputs : _ I.t = Cyclesim.inputs sim in
+    (* TODO: Something weird is going on if draw is active on the first cycle *)
+    Cyclesim.cycle sim;
+    Cyclesim.cycle sim;
+    Cyclesim.cycle sim;
+    inputs.enable := Bits.of_int ~width:1 1;
+    inputs.x := Bits.of_int ~width:8 x;
+    inputs.y := Bits.of_int ~width:8 y;
+    inputs.n := Bits.of_int ~width:4 n;
+    inputs.i := Bits.of_int ~width:12 i;
+    let output : _ O.t = Cyclesim.outputs sim in
+    let print_outputs () =
+      let pp v = Bits.to_int !v in
+      printf
+        "Finished: %i Step: %i Read Step: %i Read addr: %i  Write addr: %i %i %i\n"
+        (pp output.finished)
+        (pp output.step)
+        (pp output.read)
+        (pp output.memory.read_address)
+        (pp output.memory.write_address)
+        (pp output.memory.write_data)
+        (pp output.memory.write_enable)
+    in
+    Sequence.(
+      range 0 cycles
+      |> iter ~f:(fun _ ->
+             Cyclesim.cycle sim;
+             print_outputs ()));
     (* TODO: Draw tests *)
     ()
   ;;
 
   let%expect_test "seed and cycle" =
-    test ~cycles:1000;
-    [%expect.unreachable]
-    [@@expect.uncaught_exn
+    test ~cycles:16 ~x:12 ~y:5 ~n:4 ~i:231;
+    [%expect
       {|
-    (* CR expect_test_collector: This test expectation appears to contain a backtrace.
-       This is strongly discouraged as backtraces are fragile.
-       Please change this test to not include a backtrace. *)
-
-    ("[+:] got inputs of different widths"
-      ((wire (width 16) (data_in i))
-        (register (width 12)
-          ((clock clock) (clock_edge Rising) (clear clear) (clear_level High)
-            (clear_to 0x000) (enable 0b1))
-          (data_in wire))))
-    Raised at Base__Error.raise in file "src/error.ml" (inlined), line 9, characters 14-30
-    Called from Base__Error.raise_s in file "src/error.ml", line 10, characters 19-40
-    Called from Hardcaml__Comb.Make.(+:) in file "src/comb.ml", line 491, characters 4-40
-    Called from C8__Draw.create in file "src/draw.ml", line 67, characters 36-62
-    Called from Hardcaml__Circuit.With_interface.create_exn in file "src/circuit.ml", line 380, characters 18-30
-    Called from Hardcaml__Cyclesim.With_interface.create in file "src/cyclesim.ml", line 112, characters 18-81
-    Called from C8__Draw.Test.test in file "src/draw.ml", line 103, characters 14-52
-    Called from C8__Draw.Test.(fun) in file "src/draw.ml", line 111, characters 4-21
-    Called from Expect_test_collector.Make.Instance_io.exec in file "collector/expect_test_collector.ml", line 262, characters 12-19 |}]
+      Finished: 0 Step: 0 Read Step: 0 Read addr: 0  Write addr: 4137 0 1
+      Finished: 0 Step: 1 Read Step: 1 Read addr: 232  Write addr: 0 0 0
+      Finished: 0 Step: 1 Read Step: 0 Read addr: 0  Write addr: 4145 0 1
+      Finished: 0 Step: 2 Read Step: 1 Read addr: 233  Write addr: 0 0 0
+      Finished: 0 Step: 2 Read Step: 0 Read addr: 0  Write addr: 4153 0 1
+      Finished: 0 Step: 3 Read Step: 1 Read addr: 234  Write addr: 0 0 0
+      Finished: 0 Step: 3 Read Step: 0 Read addr: 0  Write addr: 4161 0 1
+      Finished: 0 Step: 4 Read Step: 1 Read addr: 235  Write addr: 0 0 0
+      Finished: 0 Step: 4 Read Step: 0 Read addr: 0  Write addr: 4169 0 1
+      Finished: 1 Step: 5 Read Step: 0 Read addr: 0  Write addr: 0 0 0
+      Finished: 0 Step: 0 Read Step: 1 Read addr: 231  Write addr: 0 0 0
+      Finished: 0 Step: 0 Read Step: 0 Read addr: 0  Write addr: 4137 0 1
+      Finished: 0 Step: 1 Read Step: 1 Read addr: 232  Write addr: 0 0 0
+      Finished: 0 Step: 1 Read Step: 0 Read addr: 0  Write addr: 4145 0 1
+      Finished: 0 Step: 2 Read Step: 1 Read addr: 233  Write addr: 0 0 0
+      Finished: 0 Step: 2 Read Step: 0 Read addr: 0  Write addr: 4153 0 1 |}]
   ;;
 end
