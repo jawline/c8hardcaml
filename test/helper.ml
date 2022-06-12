@@ -69,17 +69,17 @@ let sim_read_framebuffer sim (i : _ I.t) (o : _ O.t) =
 ;;
 
 let frame_buffer_as_string sim (i : _ I.t) (o : _ O.t) =
-        let scale = 2 in
-  let canvas = Drawille.create (screen_width * scale) ( screen_height * scale) in
-
+  let scale = 2 in
+  let canvas = Drawille.create (screen_width * scale) (screen_height * scale) in
   (* Set with pixel scaling *)
   let set x y =
-          let scaleseq = Sequence.range 0 scale in
+    let scaleseq = Sequence.range 0 scale in
     Sequence.iter scaleseq ~f:(fun xoff ->
-            Sequence.iter scaleseq ~f:(fun yoff ->
-                    Drawille.set canvas { Drawille.x = (x * scale) + xoff ; y = (y * scale) + yoff }))
+        Sequence.iter scaleseq ~f:(fun yoff ->
+            Drawille.set
+              canvas
+              { Drawille.x = (x * scale) + xoff; y = (y * scale) + yoff }))
   in
-  
   let frame_buffer = sim_read_framebuffer sim i o in
   let pixel x y =
     let y_offset = y * (screen_width / 8) in
@@ -87,8 +87,8 @@ let frame_buffer_as_string sim (i : _ I.t) (o : _ O.t) =
     let bit = Int.shift_left 1 ((x % 8) - 1) in
     Array.get frame_buffer (y_offset + x_offset) land bit
   in
-  Sequence.range 0 screen_height |> 
-  Sequence.iter ~f:(fun y ->
+  Sequence.range 0 screen_height
+  |> Sequence.iter ~f:(fun y ->
          Sequence.range 0 screen_width
          |> Sequence.iter ~f:(fun x -> if pixel x y <> 0 then set x y else ()));
   Drawille.frame canvas
