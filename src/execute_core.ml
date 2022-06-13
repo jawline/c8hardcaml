@@ -162,7 +162,9 @@ let memory_instructions
     proc
       [ ok
       ; reg_memory_step <-- reg_memory_step.value +:. 1
-      ; when_ (reg_memory_step.value ==:. 0) [ Main_memory.write ram i.value (to_byte bcd.digit1) ]
+      ; when_
+          (reg_memory_step.value ==:. 0)
+          [ Main_memory.write ram i.value (to_byte bcd.digit1) ]
       ; when_
           (reg_memory_step.value ==:. 1)
           [ Main_memory.write ram (i.value +:. 1) (to_byte bcd.digit2) ]

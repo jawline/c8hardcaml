@@ -257,5 +257,9 @@ let circuit_with_just_read_memory (t : t) ~f =
 
 let write t addr value =
   let open Always in
-  proc [ t.write_enable <--. 1; t.write_address <-- to_main_addr addr; t.write_data <-- value ]
+  proc
+    [ t.write_enable <--. 1
+    ; t.write_address <-- to_main_addr addr
+    ; t.write_data <-- value
+    ]
 ;;

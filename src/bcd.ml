@@ -34,7 +34,7 @@ let create ({ input; _ } : _ I.t) =
     |> Sequence.map ~f:(fun i ->
            let i_as_str = Int.to_string i |> String.rev in
            let pos_to_int i =
-             if i < String.length i_as_str 
+             if i < String.length i_as_str
              then String.get i_as_str i |> Char.to_int
              else 0
            in
@@ -75,7 +75,8 @@ module Test = struct
     test ~inp:0;
     test ~inp:6;
     test ~inp:55;
-    [%expect {|
+    [%expect
+      {|
       (outputs ((digit1 0001) (digit2 0010) (digit3 0111)))
       (outputs ((digit1 0010) (digit2 0101) (digit3 0101)))
       (outputs ((digit1 0000) (digit2 0000) (digit3 0000)))
