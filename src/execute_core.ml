@@ -96,6 +96,8 @@ let key_instructions
 
 let memory_instructions
     ~spec
+    ~clock
+    ~clear
     ~(ram : Main_memory.t)
     ok
     done_with_instruction
@@ -153,6 +155,25 @@ let memory_instructions
         in
         proc [ read_i_for_next_round; store_last_round_in_register ])
   in
+  (* TODO: Use a slower algorithm instead of wasting so many gates for bcd ?
+     To save on time we implement BCD in hardware through a lookup table *)
+  let bcd = Bcd.create { Bcd.I.clock; clear; input = opcode_first_register.value } in
+  let bcd_logic =
+    proc
+      [ ok
+      ; reg_memory_step <-- reg_memory_step.value +:. 1
+      ; when_ (reg_memory_step.value ==:. 0) [ Main_memory.write ram i.value (to_byte bcd.digit1) ]
+      ; when_
+          (reg_memory_step.value ==:. 1)
+          [ Main_memory.write ram (i.value +:. 1) (to_byte bcd.digit2) ]
+      ; when_
+          (reg_memory_step.value ==:. 2)
+          [ reg_memory_step <--. 0
+          ; done_with_instruction
+          ; Main_memory.write ram (i.value +:. 2) (to_byte bcd.digit3)
+          ]
+      ]
+  in
   proc
     [ (* Add VX to I without changing the flags register *)
       when_
@@ -171,6 +192,7 @@ let memory_instructions
         ; pc <-- pc.value +:. 2
         ; done_with_instruction
         ]
+    ; when_ (opcode_immediate ==:. 0x33) [ bcd_logic ]
     ; when_ (opcode_immediate ==:. 0x55) [ reg_dump ]
     ; when_ (opcode_immediate ==:. 0x65) [ reg_load ]
     ]
@@ -448,6 +470,8 @@ let execute_instruction
     ; when_
         (primary_op ==:. 15)
         [ memory_instructions
+            ~clock
+            ~clear
             ~spec
             ~ram
             (proc [ error <--. 0 ])

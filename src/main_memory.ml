@@ -254,3 +254,8 @@ let circuit_with_just_read_memory (t : t) ~f =
   let connect_outputs_to_ram = proc [ t.read_address <-- read_address ] in
   output, connect_outputs_to_ram
 ;;
+
+let write t addr value =
+  let open Always in
+  proc [ t.write_enable <--. 1; t.write_address <-- to_main_addr addr; t.write_data <-- value ]
+;;

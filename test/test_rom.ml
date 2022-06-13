@@ -242,21 +242,21 @@ let%expect_test "Pong" =
   [%expect
     {|
       ((core
-        ((in_execute 1) (in_fetch 0) (op 1111111000110011)
-         (working_op 1111111000100001)
+        ((in_execute 0) (in_fetch 1) (op 1111111000110011)
+         (working_op 1111111011111110)
          (registers
           ((pc 001011010110) (i 001011110010) (sp 000000000010)
            (registers
             (00000000 00000000 00000000 00000000 00000000 00000000 00000000
              00000000 00000000 00000000 00000010 00001100 00111111 00001100
              00000000 00000000))))
-         (fetch_finished 0) (fetch_cycle 00) (last_op 1111111000110011)
-         (executor_done 0) (executor_error 1)
+         (fetch_finished 0) (fetch_cycle 01) (last_op 1111111000110011)
+         (executor_done 0) (executor_error 0)
          (memory
-          ((read_address 0000000000000000) (write_enable 0)
+          ((read_address 0000001011010111) (write_enable 0)
            (write_address 0000000000000000) (write_data 00000000)))
          (random_state 10001100)))
-       (read_data 00100001))
+       (read_data 11111110))
       Framebuffer
       ⠀ |}];
   return ()

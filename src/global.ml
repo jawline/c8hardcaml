@@ -19,6 +19,7 @@ let r_sync = Reg_spec.create ~clock ~clear ()
 let r_enabled ~enable = Reg_spec.create ~reset:(enable ==:. 0) ~clock ~clear ()
 let screen_width = 64
 let screen_height = 32
+let to_byte v = uresize v (Sized.size `Byte)
 let to_main_addr addr = uresize addr (Sized.size `Main_address)
 let to_addr addr = uresize addr (Sized.size `Address)
 let wire_false () = Always.Variable.wire ~default:(Signal.of_int ~width:1 0)
