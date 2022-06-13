@@ -84,7 +84,7 @@ let frame_buffer_as_string sim (i : _ I.t) (o : _ O.t) =
   let pixel x y =
     let y_offset = y * (screen_width / 8) in
     let x_offset = x / 8 in
-    let bit = Int.shift_left 1 ((x % 8) - 1) in
+    let bit = Int.shift_right 128 ((x % 8)) in
     Array.get frame_buffer (y_offset + x_offset) land bit
   in
   Sequence.range 0 screen_height
