@@ -172,6 +172,7 @@ let memory_instructions
           (reg_memory_step.value ==:. 2)
           [ reg_memory_step <--. 0
           ; done_with_instruction
+          ; pc <-- pc.value +:. 2
           ; Main_memory.write ram (i.value +:. 2) (to_byte bcd.digit3)
           ]
       ]
