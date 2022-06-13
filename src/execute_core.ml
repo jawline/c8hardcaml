@@ -177,6 +177,7 @@ let memory_instructions
           ]
       ]
   in
+  let delay_register = reg ~width:16 spec in
   proc
     [ (* Add VX to I without changing the flags register *)
       when_
@@ -198,6 +199,26 @@ let memory_instructions
     ; when_ (opcode_immediate ==:. 0x33) [ bcd_logic ]
     ; when_ (opcode_immediate ==:. 0x55) [ reg_dump ]
     ; when_ (opcode_immediate ==:. 0x65) [ reg_load ]
+    ; (* TODO: This delay register is not precise; it should tick at 60Hz but instead we tick it every 8 cycles. *)
+      when_
+        (delay_register.value <>:. 0)
+        [ delay_register <-- delay_register.value -:. 1 ]
+    ; when_
+        (opcode_immediate ==:. 0x07)
+        [ Target_register.assign
+            opcode_first_register
+            (select (srl delay_register.value 3) 7 0)
+        ; ok
+        ; done_with_instruction
+        ; pc <-- pc.value +:. 2
+        ]
+    ; when_
+        (opcode_immediate ==:. 0x15)
+        [ delay_register <-- sll (uresize opcode_first_register.value 16) 3
+        ; ok
+        ; done_with_instruction
+        ; pc <-- pc.value +:. 2
+        ]
     ]
 ;;
 

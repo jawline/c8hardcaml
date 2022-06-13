@@ -519,4 +519,6 @@ let%expect_test "test sprite load" =
 
 (** TODO: Stack pointer CALL and RET tests *)
 
+(** TODO: Test get/set delay *)
+
 (** TODO: test key press instructions *)
