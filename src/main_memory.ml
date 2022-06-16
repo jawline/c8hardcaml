@@ -211,6 +211,14 @@ module Wires = struct
     { write_enable; write_address; write_data; read_address; read_data }
   ;;
 
+  let to_output { write_enable; write_address; write_data; read_address } =
+    { In_circuit.O.write_enable = write_enable.value
+    ; write_address = write_address.value
+    ; write_data = write_data.value
+    ; read_address = read_address.value
+    }
+  ;;
+
   let t_of_in_circuit ({ read_data } : _ In_circuit.I.t) =
     to_main_memory ~read_data (create ())
   ;;

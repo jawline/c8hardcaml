@@ -68,9 +68,39 @@ let sim_read_framebuffer sim (i : _ I.t) (o : _ O.t) =
     C8.Main_memory.frame_buffer_size
 ;;
 
+let draw_border_around_canvas ~canvas ~width ~height =
+  Sequence.range 0 width
+  |> Sequence.iter ~f:(fun x ->
+         Drawille.set canvas { Drawille.x; y = 0 };
+         Drawille.set canvas { Drawille.x; y = height - 1 });
+  Sequence.range 0 height
+  |> Sequence.iter ~f:(fun y ->
+         Drawille.set canvas { Drawille.x = 0; y };
+         Drawille.set canvas { Drawille.x = width - 1; y })
+;;
+
+let draw_framebuffer ~set sim (i : _ I.t) (o : _ O.t) =
+  let frame_buffer = sim_read_framebuffer sim i o in
+  let pixel x y =
+    let y_offset = y * (screen_width / 8) in
+    let x_offset = x / 8 in
+    let bit = Int.shift_right 128 (x % 8) in
+    Array.get frame_buffer (y_offset + x_offset) land bit
+  in
+  Sequence.range 0 screen_height
+  |> Sequence.iter ~f:(fun y ->
+         Sequence.range 0 screen_width
+         |> Sequence.iter ~f:(fun x -> if pixel x y <> 0 then set x y else ()))
+;;
+
 let frame_buffer_as_string sim (i : _ I.t) (o : _ O.t) =
   let scale = 2 in
-  let canvas = Drawille.create (screen_width * scale) (screen_height * scale) in
+  (* Add two extra rows and columns to add a border *)
+  let x_margin = 0 in
+  let y_margin = 0 in
+  let canvas_width = (screen_width * scale) + x_margin + 1 in
+  let canvas_height = (screen_height * scale) + y_margin + 1 in
+  let canvas = Drawille.create canvas_width canvas_height in
   (* Set with pixel scaling *)
   let set x y =
     let scaleseq = Sequence.range 0 scale in
@@ -78,19 +108,12 @@ let frame_buffer_as_string sim (i : _ I.t) (o : _ O.t) =
         Sequence.iter scaleseq ~f:(fun yoff ->
             Drawille.set
               canvas
-              { Drawille.x = (x * scale) + xoff; y = (y * scale) + yoff }))
+              { Drawille.x = (x * scale) + xoff + (x_margin / 2) + 1
+              ; y = (y * scale) + yoff + (y_margin / 2) + 1
+              }))
   in
-  let frame_buffer = sim_read_framebuffer sim i o in
-  let pixel x y =
-    let y_offset = y * (screen_width / 8) in
-    let x_offset = x / 8 in
-    let bit = Int.shift_right 128 ((x % 8)) in
-    Array.get frame_buffer (y_offset + x_offset) land bit
-  in
-  Sequence.range 0 screen_height
-  |> Sequence.iter ~f:(fun y ->
-         Sequence.range 0 screen_width
-         |> Sequence.iter ~f:(fun x -> if pixel x y <> 0 then set x y else ()));
+  draw_border_around_canvas ~canvas ~width:canvas_width ~height:canvas_height;
+  draw_framebuffer ~set sim i o;
   Drawille.frame canvas
 ;;
 
@@ -98,4 +121,40 @@ let sim_cycle_not_programming sim (i : _ I.t) (o : _ O.t) ~print =
   sim_disable_programming i;
   Cyclesim.cycle sim;
   if print then print_s [%sexp (o : Bits.t ref C8.Programmable_cpu_core.O.t)] else ()
+;;
+
+(* Average opcode takes 3 cycles to execute (2 to fetch, one to execute) *)
+let rough_cycles_per_second = 512 * 3
+
+let test_rom ~cycles ~rom_file ~create ~print_on_cycle ~print_on_exit =
+  let module Simulator = Cyclesim.With_interface (I) (O) in
+  let sim = Simulator.create (create ~spec:r_sync) in
+  let inputs : _ I.t = Cyclesim.inputs sim in
+  let outputs : _ O.t = Cyclesim.outputs sim in
+  let rand = Random.State.default in
+  (* Write font data to main memory *)
+  sim_program_machine_rom sim inputs;
+  (* Write the test rom to main memory *)
+  sim_program_rom sim inputs ~rom:(String.to_list rom_file |> List.map ~f:Char.to_int);
+  (* Set all keys to low *)
+  List.iter inputs.keys.state ~f:(fun key -> key := Bits.of_int ~width:1 0);
+  (* Simulate the program we just wrote running for 100 cycles *)
+  Sequence.range 0 cycles
+  |> Sequence.iter ~f:(fun i ->
+         (* Every second roughly randomly re-assign pressed keys *)
+         if i % (rough_cycles_per_second / 5) = 0
+         then
+           List.iter inputs.keys.state ~f:(fun key ->
+               key := Bits.of_int ~width:1 (Random.State.int rand 1));
+         sim_cycle_not_programming sim inputs outputs ~print:print_on_cycle;
+         if Bits.to_int !(outputs.core.executor_error) = 1
+         then (
+           (* Print registers and framebuffer on error *) printf "ERROR: ";
+           sim_cycle_not_programming sim inputs outputs ~print:true;
+           printf "%s" (frame_buffer_as_string sim inputs outputs);
+           raise_s [%message "Error in ROM"])
+         else ());
+  sim_cycle_not_programming sim inputs outputs ~print:print_on_exit;
+  printf "%s\n" (frame_buffer_as_string sim inputs outputs);
+  ()
 ;;

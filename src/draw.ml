@@ -10,9 +10,20 @@ open Global
     to read I). *)
 
 module Draw_state = struct
+  (** Writing a byte is a five cycle process because writes don't need to be
+      aligned. 
+      
+      We read the byte we want to read then read in the left
+      (framebuffer_addr) byte then write the cut of the number of bits of i
+      that should be in the byte.
+      
+      We then do the same for the byte on the right.*)
   type t =
-    | Read
-    | Write
+    | Read_i
+    | Read_lhs
+    | Write_lhs
+    | Read_rhs
+    | Write_rhs
   [@@deriving sexp_of, compare, enumerate]
 end
 
@@ -34,11 +45,66 @@ module O = struct
   type 'a t =
     { finished : 'a [@bits 1]
     ; step : 'a [@bits 12]
-    ; read : 'a [@bits 1]
     ; memory : 'a Main_memory.In_circuit.O.t
     }
   [@@deriving sexp_of, hardcaml]
 end
+
+(** Because writes can be unaligned we need to write to either side of two bytes. *)
+let draw_side
+    ~(state : Draw_state.t Always.State_machine.t)
+    ~(ram : Main_memory.Wires.t)
+    ~read_data
+    ~x
+    ~side
+    ~current_i
+    ~framebuffer_address
+  =
+  let open Always in
+  let open Variable in
+  let read_next_state =
+    match side with
+    | `Lhs -> Draw_state.Write_lhs
+    | `Rhs -> Write_rhs
+  in
+  let read_step =
+    [ ram.read_address <-- to_main_addr framebuffer_address
+    ; state.set_next read_next_state
+    ]
+    |> proc
+  in
+  let write_next_state =
+    match side with
+    | `Lhs -> Draw_state.Write_rhs
+    | `Rhs -> Read_i
+  in
+  let x_offset = select x 2 0 in
+  let selected_write_data = wire ~default:(Signal.of_int ~width:8 0) in
+  let write_data =
+    Sequence.range 0 8
+    |> Sequence.map ~f:(fun offset ->
+           proc
+             [ when_
+                 (x_offset ==:. offset)
+                 [ (match side with
+                   | `Lhs -> (* Lhs of the exissting and rhs of the new *) assert false
+                   | `Rhs -> (* Lhs of the new and rhs of the new *) assert false)
+                 ]
+             ])
+    |> Sequence.to_list
+    |> proc
+  in
+  let write_step =
+    [ write_data
+    ; ram.write_enable <--. 1
+    ; ram.write_address <-- framebuffer_address
+    ; ram.write_data <-- selected_write_data.value
+    ; state.set_next write_next_state
+    ]
+    |> proc
+  in
+  read_step, write_step
+;;
 
 let create ~spec (i : _ I.t) =
   let open Always in
@@ -51,13 +117,10 @@ let create ~spec (i : _ I.t) =
   let n = to_addr i.n in
   let i_register = i.i in
   let finished = wire ~default:(Signal.of_int ~width:1 0) in
-  let write_enable = wire ~default:(Signal.of_int ~width:1 0) in
-  let write_address = wire ~default:(Signal.of_int ~width:(Sized.size `Main_address) 0) in
-  let write_data = wire ~default:(Signal.of_int ~width:(Sized.size `Byte) 0) in
-  let read_address = wire ~default:(Signal.of_int ~width:(Sized.size `Main_address) 0) in
-  let read = wire ~default:(Signal.of_int ~width:1 0) in
+  let ram = Main_memory.Wires.create () in
   (* Step calculates the current depth into the draw operation *)
   let step = Variable.reg ~enable:vdd ~width:(Sized.size `Address) spec in
+  let last_step = step.value ==: n +:. 1 in
   let framebuffer_address =
     let step_value_as_address = to_main_addr step.value in
     (* Shifting y left by 3 is the same as multiply it by screen_width / 8 *)
@@ -66,40 +129,52 @@ let create ~spec (i : _ I.t) =
     let framebuffer_offset = srl x 3 +: row_offset in
     framebuffer_offset +:. Main_memory.framebuffer_start
   in
-  let read_step =
-    [ read <--. 1
-    ; read_address <-- to_main_addr (i_register +: step.value)
-    ; state.set_next Write
+  let current_i = Variable.reg ~enable:vdd ~width:8 spec in
+  let read_i_step =
+    [ ram.read_address <-- to_main_addr (i_register +: step.value)
+    ; state.set_next Read_lhs
+    ; current_i <--. 0
     ]
   in
-  let write_step =
-    [ step <-- step.value +:. 1
-    ; write_enable <--. 1
-    ; write_address <-- framebuffer_address
-    ; write_data <-- i.memory.read_data
-    ; state.set_next Read
-    ]
+  (* I will be read one cycle before read_lhs so we need to write it down
+     when on that side. *)
+  let read_data = i.memory.read_data in
+  let read_lhs, write_lhs =
+    draw_side ~read_data ~state ~ram ~x ~side:`Lhs ~current_i ~framebuffer_address
   in
+  let read_lhs = proc [ current_i <-- i.memory.read_data; read_lhs ] in
+  let read_rhs, write_rhs =
+    draw_side
+      ~read_data
+      ~state
+      ~ram
+      ~x
+      ~side:`Rhs
+      ~current_i
+      ~framebuffer_address:(framebuffer_address +:. 1)
+  in
+  (* On write_rhs we should increment the step *)
+  let write_rhs = proc [ write_rhs; step <-- step.value +:. 1 ] in
   (* TODO: Bits not bytes! *)
   (* TODO: Collision *)
   let set_finished_and_reset =
-    proc [ state.set_next Read; step <--. 0; finished <--. 1 ]
+    proc [ state.set_next Read_i; step <--. 0; finished <--. 1; current_i <--. 0 ]
   in
-  let step_draw = proc [ state.switch [ Read, read_step; Write, write_step ] ] in
-  compile
-    [ when_
-        i.enable
-        [ if_ (step.value ==: n +:. 1) [ set_finished_and_reset ] [ step_draw ] ]
-    ];
+  let step_draw =
+    proc
+      [ state.switch
+          [ Read_i, read_i_step
+          ; Read_lhs, [ read_lhs ]
+          ; Write_lhs, [ write_lhs ]
+          ; Read_rhs, [ read_rhs ]
+          ; Write_rhs, [ write_rhs ] 
+          ]
+      ]
+  in
+  compile [ when_ i.enable [ if_ last_step [ set_finished_and_reset ] [ step_draw ] ] ];
   { O.finished = finished.value
   ; step = step.value
-  ; read = read.value
-  ; memory =
-      Main_memory.In_circuit.O.always_create
-        ~read_address
-        ~write_enable
-        ~write_address
-        ~write_data
+  ; memory = Main_memory.Wires.to_output ram
   }
 ;;
 
@@ -123,10 +198,9 @@ module Test = struct
     let print_outputs () =
       let pp v = Bits.to_int !v in
       printf
-        "Finished: %i Step: %i Read Step: %i Read addr: %i  Write addr: %i %i %i\n"
+        "Finished: %i Step: %i Read addr: %i  Write addr: %i %i %i\n"
         (pp output.finished)
         (pp output.step)
-        (pp output.read)
         (pp output.memory.read_address)
         (pp output.memory.write_address)
         (pp output.memory.write_data)
