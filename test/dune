@@ -3,7 +3,7 @@
  (libraries hardcaml core async async_unix hardcaml_waveterm c8)
  (inline_tests
   (deps maze.ch8 blinky.ch8 particle.ch8 trip8.ch8 pong.ch8 cave.ch8
-    airplane.ch8))
+    airplane.ch8 sirpinski.ch8 rocket_launcher.ch8))
  (preprocess
   (pps ppx_jane ppx_deriving_hardcaml ppx_deriving.show ppx_deriving.ord
     ppx_expect)))
