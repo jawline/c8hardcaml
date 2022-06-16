@@ -207,7 +207,7 @@ let memory_instructions
         (opcode_immediate ==:. 0x07)
         [ Target_register.assign
             opcode_first_register
-            (select (srl delay_register.value 3) 7 0)
+            (sel_bottom (srl delay_register.value 3) 8)
         ; ok
         ; done_with_instruction
         ; pc <-- pc.value +:. 2
