@@ -3,11 +3,8 @@ open! Hardcaml
 open! Signal
 open Global
 
-(** An implementation of the draw instruction in hardware. We cycle through
-    i to i + n writing the bits under I to the frame buffer. Every other cycle
-    we read the current state of the frame buffer so that we can test collision
-    until (2N) cycles has occured (one cycle to read the framebuffer and one
-    to read I). *)
+(** An implementation of the draw instruction in hardware. There are five
+    cycles per bit as we need to do an unaligned write into a bitvector. *)
 
 module Draw_state = struct
   (** Writing a byte is a five cycle process because writes don't need to be
@@ -78,33 +75,26 @@ let draw_side
     | `Lhs -> Draw_state.Read_rhs
     | `Rhs -> Read_i
   in
-  let x_offset = select x 2 0 in
+  let x_offset = sel_bottom x 3 in
   let selected_write_data = wire ~default:(Signal.of_int ~width:8 0) in
+  let value_to_write bit =
+    match side with
+    | `Lhs ->
+      (* Lhs of the existing and rhs of the new *)
+      if bit = 0
+      then current_i
+      else sel_top read_data ((7 - bit) + 1) @: sel_top current_i (bit)
+    | `Rhs ->
+      (* Lhs of the new and rhs of the new *)
+      if bit = 0
+      then read_data
+      else sel_bottom current_i ((7 - bit) + 1) @: sel_bottom read_data (bit)
+  in
   let write_data =
     Sequence.range 0 8
     |> Sequence.map ~f:(fun bit ->
            proc
-             [ when_
-                 (x_offset ==:. bit)
-                 [ (selected_write_data
-                   <--
-                   match side with
-                   | `Lhs ->
-                     (* Lhs of the existing and rhs of the new *)
-                     if bit = 0
-                     then current_i
-                     else
-                       concat_msb
-                         [ select read_data (7 - bit) 0; select current_i (bit - 1) 0 ]
-                   | `Rhs ->
-                     (* Lhs of the new and rhs of the new *)
-                     if bit = 0
-                     then read_data
-                     else
-                       concat_msb
-                         [ select current_i 7 bit; select read_data 7 (7 - bit + 1) ])
-                 ]
-             ])
+             [ when_ (x_offset ==:. bit) [ selected_write_data <-- value_to_write bit ] ])
     |> Sequence.to_list
     |> proc
   in
@@ -191,7 +181,12 @@ let create ~spec (i : _ I.t) =
           ]
       ]
   in
-  compile [ if_ i.enable [ if_ last_step [ set_finished_and_reset ] [ step_draw ] ] [ state.set_next Read_i ; step <--. 0 ] ];
+  compile
+    [ if_
+        i.enable
+        [ if_ last_step [ set_finished_and_reset ] [ step_draw ] ]
+        [ state.set_next Read_i; step <--. 0 ]
+    ];
   { O.finished = finished.value
   ; step = step.value
   ; memory = Main_memory.Wires.to_output ram
@@ -205,6 +200,7 @@ module Test = struct
     let module Simulator = Cyclesim.With_interface (I) (O) in
     let sim = Simulator.create (create ~spec:r_sync) in
     let inputs : _ I.t = Cyclesim.inputs sim in
+    let output : _ O.t = Cyclesim.outputs sim in
     (* TODO: Something weird is going on if draw is active on the first cycle *)
     inputs.enable := Bits.of_int ~width:1 0;
     Cyclesim.cycle sim;
@@ -218,7 +214,6 @@ module Test = struct
     inputs.y := Bits.of_int ~width:8 y;
     inputs.n := Bits.of_int ~width:4 n;
     inputs.i := Bits.of_int ~width:12 i;
-    let output : _ O.t = Cyclesim.outputs sim in
     let print_outputs () =
       let pp v = Bits.to_int !v in
       printf
