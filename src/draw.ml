@@ -83,12 +83,12 @@ let draw_side
       (* Lhs of the existing and rhs of the new *)
       if bit = 0
       then current_i
-      else sel_top read_data (7 - bit + 1) @: sel_top current_i bit
+      else sel_top read_data (8 - bit) @: sel_top current_i bit
     | `Rhs ->
       (* Lhs of the new and rhs of the new *)
       if bit = 0
       then read_data
-      else sel_bottom current_i (7 - bit + 1) @: sel_bottom read_data bit
+      else sel_bottom current_i (8 - bit) @: sel_bottom read_data bit
   in
   let write_data =
     Sequence.range 0 8
