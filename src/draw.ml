@@ -75,20 +75,34 @@ let draw_side
   in
   let write_next_state =
     match side with
-    | `Lhs -> Draw_state.Write_rhs
+    | `Lhs -> Draw_state.Read_rhs
     | `Rhs -> Read_i
   in
   let x_offset = select x 2 0 in
   let selected_write_data = wire ~default:(Signal.of_int ~width:8 0) in
   let write_data =
     Sequence.range 0 8
-    |> Sequence.map ~f:(fun offset ->
+    |> Sequence.map ~f:(fun bit ->
            proc
              [ when_
-                 (x_offset ==:. offset)
-                 [ (match side with
-                   | `Lhs -> (* Lhs of the exissting and rhs of the new *) assert false
-                   | `Rhs -> (* Lhs of the new and rhs of the new *) assert false)
+                 (x_offset ==:. bit)
+                 [ (selected_write_data
+                   <--
+                   match side with
+                   | `Lhs ->
+                     (* Lhs of the existing and rhs of the new *)
+                     if bit = 0
+                     then current_i
+                     else
+                       concat_msb
+                         [ select read_data (7 - bit) 0; select current_i (bit - 1) 0 ]
+                   | `Rhs ->
+                     (* Lhs of the new and rhs of the new *)
+                     if bit = 0
+                     then read_data
+                     else
+                       concat_msb
+                         [ select current_i 7 bit; select read_data 7 (7 - bit + 1) ])
                  ]
              ])
     |> Sequence.to_list
@@ -120,7 +134,7 @@ let create ~spec (i : _ I.t) =
   let ram = Main_memory.Wires.create () in
   (* Step calculates the current depth into the draw operation *)
   let step = Variable.reg ~enable:vdd ~width:(Sized.size `Address) spec in
-  let last_step = step.value ==: n +:. 1 in
+  let last_step = step.value ==: n in
   let framebuffer_address =
     let step_value_as_address = to_main_addr step.value in
     (* Shifting y left by 3 is the same as multiply it by screen_width / 8 *)
@@ -140,7 +154,14 @@ let create ~spec (i : _ I.t) =
      when on that side. *)
   let read_data = i.memory.read_data in
   let read_lhs, write_lhs =
-    draw_side ~read_data ~state ~ram ~x ~side:`Lhs ~current_i ~framebuffer_address
+    draw_side
+      ~read_data
+      ~state
+      ~ram
+      ~x
+      ~side:`Lhs
+      ~current_i:current_i.value
+      ~framebuffer_address
   in
   let read_lhs = proc [ current_i <-- i.memory.read_data; read_lhs ] in
   let read_rhs, write_rhs =
@@ -150,12 +171,11 @@ let create ~spec (i : _ I.t) =
       ~ram
       ~x
       ~side:`Rhs
-      ~current_i
+      ~current_i:current_i.value
       ~framebuffer_address:(framebuffer_address +:. 1)
   in
   (* On write_rhs we should increment the step *)
   let write_rhs = proc [ write_rhs; step <-- step.value +:. 1 ] in
-  (* TODO: Bits not bytes! *)
   (* TODO: Collision *)
   let set_finished_and_reset =
     proc [ state.set_next Read_i; step <--. 0; finished <--. 1; current_i <--. 0 ]
@@ -167,11 +187,11 @@ let create ~spec (i : _ I.t) =
           ; Read_lhs, [ read_lhs ]
           ; Write_lhs, [ write_lhs ]
           ; Read_rhs, [ read_rhs ]
-          ; Write_rhs, [ write_rhs ] 
+          ; Write_rhs, [ write_rhs ]
           ]
       ]
   in
-  compile [ when_ i.enable [ if_ last_step [ set_finished_and_reset ] [ step_draw ] ] ];
+  compile [ if_ i.enable [ if_ last_step [ set_finished_and_reset ] [ step_draw ] ] [ state.set_next Read_i ; step <--. 0 ] ];
   { O.finished = finished.value
   ; step = step.value
   ; memory = Main_memory.Wires.to_output ram
@@ -186,6 +206,10 @@ module Test = struct
     let sim = Simulator.create (create ~spec:r_sync) in
     let inputs : _ I.t = Cyclesim.inputs sim in
     (* TODO: Something weird is going on if draw is active on the first cycle *)
+    inputs.enable := Bits.of_int ~width:1 0;
+    Cyclesim.cycle sim;
+    Cyclesim.cycle sim;
+    Cyclesim.cycle sim;
     Cyclesim.cycle sim;
     Cyclesim.cycle sim;
     Cyclesim.cycle sim;
@@ -206,6 +230,8 @@ module Test = struct
         (pp output.memory.write_data)
         (pp output.memory.write_enable)
     in
+    print_outputs ();
+    printf "Starting main loop\n";
     Sequence.(
       range 0 cycles
       |> iter ~f:(fun _ ->
@@ -216,24 +242,74 @@ module Test = struct
   ;;
 
   let%expect_test "seed and cycle" =
-    test ~cycles:16 ~x:12 ~y:5 ~n:4 ~i:231;
+    test ~cycles:64 ~x:12 ~y:5 ~n:2 ~i:231;
     [%expect
       {|
-      Finished: 0 Step: 0 Read Step: 0 Read addr: 0  Write addr: 4393 0 1
-      Finished: 0 Step: 1 Read Step: 1 Read addr: 232  Write addr: 0 0 0
-      Finished: 0 Step: 1 Read Step: 0 Read addr: 0  Write addr: 4401 0 1
-      Finished: 0 Step: 2 Read Step: 1 Read addr: 233  Write addr: 0 0 0
-      Finished: 0 Step: 2 Read Step: 0 Read addr: 0  Write addr: 4409 0 1
-      Finished: 0 Step: 3 Read Step: 1 Read addr: 234  Write addr: 0 0 0
-      Finished: 0 Step: 3 Read Step: 0 Read addr: 0  Write addr: 4417 0 1
-      Finished: 0 Step: 4 Read Step: 1 Read addr: 235  Write addr: 0 0 0
-      Finished: 0 Step: 4 Read Step: 0 Read addr: 0  Write addr: 4425 0 1
-      Finished: 1 Step: 5 Read Step: 0 Read addr: 0  Write addr: 0 0 0
-      Finished: 0 Step: 0 Read Step: 1 Read addr: 231  Write addr: 0 0 0
-      Finished: 0 Step: 0 Read Step: 0 Read addr: 0  Write addr: 4393 0 1
-      Finished: 0 Step: 1 Read Step: 1 Read addr: 232  Write addr: 0 0 0
-      Finished: 0 Step: 1 Read Step: 0 Read addr: 0  Write addr: 4401 0 1
-      Finished: 0 Step: 2 Read Step: 1 Read addr: 233  Write addr: 0 0 0
-      Finished: 0 Step: 2 Read Step: 0 Read addr: 0  Write addr: 4409 0 1 |}]
+      Finished: 0 Step: 0 Read addr: 0  Write addr: 0 0 0
+      Starting main loop
+      Finished: 0 Step: 0 Read addr: 4393  Write addr: 0 0 0
+      Finished: 0 Step: 0 Read addr: 0  Write addr: 4393 0 1
+      Finished: 0 Step: 0 Read addr: 4394  Write addr: 0 0 0
+      Finished: 0 Step: 0 Read addr: 0  Write addr: 4394 0 1
+      Finished: 0 Step: 1 Read addr: 232  Write addr: 0 0 0
+      Finished: 0 Step: 1 Read addr: 4401  Write addr: 0 0 0
+      Finished: 0 Step: 1 Read addr: 0  Write addr: 4401 0 1
+      Finished: 0 Step: 1 Read addr: 4402  Write addr: 0 0 0
+      Finished: 0 Step: 1 Read addr: 0  Write addr: 4402 0 1
+      Finished: 1 Step: 2 Read addr: 0  Write addr: 0 0 0
+      Finished: 0 Step: 0 Read addr: 231  Write addr: 0 0 0
+      Finished: 0 Step: 0 Read addr: 4393  Write addr: 0 0 0
+      Finished: 0 Step: 0 Read addr: 0  Write addr: 4393 0 1
+      Finished: 0 Step: 0 Read addr: 4394  Write addr: 0 0 0
+      Finished: 0 Step: 0 Read addr: 0  Write addr: 4394 0 1
+      Finished: 0 Step: 1 Read addr: 232  Write addr: 0 0 0
+      Finished: 0 Step: 1 Read addr: 4401  Write addr: 0 0 0
+      Finished: 0 Step: 1 Read addr: 0  Write addr: 4401 0 1
+      Finished: 0 Step: 1 Read addr: 4402  Write addr: 0 0 0
+      Finished: 0 Step: 1 Read addr: 0  Write addr: 4402 0 1
+      Finished: 1 Step: 2 Read addr: 0  Write addr: 0 0 0
+      Finished: 0 Step: 0 Read addr: 231  Write addr: 0 0 0
+      Finished: 0 Step: 0 Read addr: 4393  Write addr: 0 0 0
+      Finished: 0 Step: 0 Read addr: 0  Write addr: 4393 0 1
+      Finished: 0 Step: 0 Read addr: 4394  Write addr: 0 0 0
+      Finished: 0 Step: 0 Read addr: 0  Write addr: 4394 0 1
+      Finished: 0 Step: 1 Read addr: 232  Write addr: 0 0 0
+      Finished: 0 Step: 1 Read addr: 4401  Write addr: 0 0 0
+      Finished: 0 Step: 1 Read addr: 0  Write addr: 4401 0 1
+      Finished: 0 Step: 1 Read addr: 4402  Write addr: 0 0 0
+      Finished: 0 Step: 1 Read addr: 0  Write addr: 4402 0 1
+      Finished: 1 Step: 2 Read addr: 0  Write addr: 0 0 0
+      Finished: 0 Step: 0 Read addr: 231  Write addr: 0 0 0
+      Finished: 0 Step: 0 Read addr: 4393  Write addr: 0 0 0
+      Finished: 0 Step: 0 Read addr: 0  Write addr: 4393 0 1
+      Finished: 0 Step: 0 Read addr: 4394  Write addr: 0 0 0
+      Finished: 0 Step: 0 Read addr: 0  Write addr: 4394 0 1
+      Finished: 0 Step: 1 Read addr: 232  Write addr: 0 0 0
+      Finished: 0 Step: 1 Read addr: 4401  Write addr: 0 0 0
+      Finished: 0 Step: 1 Read addr: 0  Write addr: 4401 0 1
+      Finished: 0 Step: 1 Read addr: 4402  Write addr: 0 0 0
+      Finished: 0 Step: 1 Read addr: 0  Write addr: 4402 0 1
+      Finished: 1 Step: 2 Read addr: 0  Write addr: 0 0 0
+      Finished: 0 Step: 0 Read addr: 231  Write addr: 0 0 0
+      Finished: 0 Step: 0 Read addr: 4393  Write addr: 0 0 0
+      Finished: 0 Step: 0 Read addr: 0  Write addr: 4393 0 1
+      Finished: 0 Step: 0 Read addr: 4394  Write addr: 0 0 0
+      Finished: 0 Step: 0 Read addr: 0  Write addr: 4394 0 1
+      Finished: 0 Step: 1 Read addr: 232  Write addr: 0 0 0
+      Finished: 0 Step: 1 Read addr: 4401  Write addr: 0 0 0
+      Finished: 0 Step: 1 Read addr: 0  Write addr: 4401 0 1
+      Finished: 0 Step: 1 Read addr: 4402  Write addr: 0 0 0
+      Finished: 0 Step: 1 Read addr: 0  Write addr: 4402 0 1
+      Finished: 1 Step: 2 Read addr: 0  Write addr: 0 0 0
+      Finished: 0 Step: 0 Read addr: 231  Write addr: 0 0 0
+      Finished: 0 Step: 0 Read addr: 4393  Write addr: 0 0 0
+      Finished: 0 Step: 0 Read addr: 0  Write addr: 4393 0 1
+      Finished: 0 Step: 0 Read addr: 4394  Write addr: 0 0 0
+      Finished: 0 Step: 0 Read addr: 0  Write addr: 4394 0 1
+      Finished: 0 Step: 1 Read addr: 232  Write addr: 0 0 0
+      Finished: 0 Step: 1 Read addr: 4401  Write addr: 0 0 0
+      Finished: 0 Step: 1 Read addr: 0  Write addr: 4401 0 1
+      Finished: 0 Step: 1 Read addr: 4402  Write addr: 0 0 0
+      Finished: 0 Step: 1 Read addr: 0  Write addr: 4402 0 1 |}]
   ;;
 end
