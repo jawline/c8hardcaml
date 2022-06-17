@@ -77,24 +77,20 @@ let draw_side
   in
   let x_offset = sel_bottom x 3 in
   let selected_write_data = wire ~default:(Signal.of_int ~width:8 0) in
-  let value_to_write bit =
+  let padded_value_to_write bit =
     match side with
-    | `Lhs ->
-      (* Lhs of the existing and rhs of the new *)
-      if bit = 0
-      then current_i
-      else sel_top read_data (8 - bit) @: sel_top current_i bit
-    | `Rhs ->
-      (* Lhs of the new and rhs of the new *)
-      if bit = 0
-      then read_data
-      else sel_bottom current_i (8 - bit) @: sel_bottom read_data bit
+    | `Lhs -> srl current_i (bit)
+    | `Rhs -> sll current_i ((7 - bit) + 1)
+  in
+  (* We write the value from i, offset by bits XOR the current value of the byte *)
+  let new_framebuffer_value bit =
+    (padded_value_to_write bit ^: read_data)
   in
   let write_data =
     Sequence.range 0 8
     |> Sequence.map ~f:(fun bit ->
            proc
-             [ when_ (x_offset ==:. bit) [ selected_write_data <-- value_to_write bit ] ])
+             [ when_ (x_offset ==:. bit) [ selected_write_data <-- new_framebuffer_value bit ] ])
     |> Sequence.to_list
     |> proc
   in
@@ -130,7 +126,7 @@ let create ~spec (i : _ I.t) =
     (* Shifting y left by 3 is the same as multiply it by screen_width / 8 *)
     let row_offset = sll (y +: step_value_as_address) 3 in
     (* Shifting x right by three is the same as dividing it by 8 *)
-    let framebuffer_offset = srl x 3 +: row_offset in
+    let framebuffer_offset = (srl x 3) +: row_offset in
     framebuffer_offset +:. Main_memory.framebuffer_start
   in
   let current_i = Variable.reg ~enable:vdd ~width:8 spec in

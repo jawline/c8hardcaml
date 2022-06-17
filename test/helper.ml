@@ -96,10 +96,8 @@ let draw_framebuffer ~set sim (i : _ I.t) (o : _ O.t) =
 let frame_buffer_as_string sim (i : _ I.t) (o : _ O.t) =
   let scale = 2 in
   (* Add two extra rows and columns to add a border *)
-  let x_margin = 0 in
-  let y_margin = 0 in
-  let canvas_width = (screen_width * scale) + x_margin + 1 in
-  let canvas_height = (screen_height * scale) + y_margin + 1 in
+  let canvas_width = (screen_width * scale) + 2 in
+  let canvas_height = (screen_height * scale) + 2 in
   let canvas = Drawille.create canvas_width canvas_height in
   (* Set with pixel scaling *)
   let set x y =
@@ -108,8 +106,8 @@ let frame_buffer_as_string sim (i : _ I.t) (o : _ O.t) =
         Sequence.iter scaleseq ~f:(fun yoff ->
             Drawille.set
               canvas
-              { Drawille.x = (x * scale) + xoff + (x_margin / 2) + 1
-              ; y = (y * scale) + yoff + (y_margin / 2) + 1
+              { Drawille.x = (x * scale) + xoff + 1
+              ; y = (y * scale) + yoff  + 1
               }))
   in
   draw_border_around_canvas ~canvas ~width:canvas_width ~height:canvas_height;
