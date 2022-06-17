@@ -106,9 +106,7 @@ let frame_buffer_as_string sim (i : _ I.t) (o : _ O.t) =
         Sequence.iter scaleseq ~f:(fun yoff ->
             Drawille.set
               canvas
-              { Drawille.x = (x * scale) + xoff + 1
-              ; y = (y * scale) + yoff  + 1
-              }))
+              { Drawille.x = (x * scale) + xoff + 1; y = (y * scale) + yoff + 1 }))
   in
   draw_border_around_canvas ~canvas ~width:canvas_width ~height:canvas_height;
   draw_framebuffer ~set sim i o;
