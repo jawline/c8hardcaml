@@ -3,9 +3,6 @@ open! Hardcaml
 open! Signal
 open Global
 
-(** An implementation of fetch that takes 2 cycles
-    to read a 16-bit opcode from main memory. *)
-
 module I = struct
   type 'a t =
     { clock : 'a [@bits 1]
@@ -63,8 +60,6 @@ let create ~spec (i : _ I.t) =
 ;;
 
 module Test = struct
-  let cycle sim (_o : _ O.t) = Cyclesim.cycle sim
-
   let test () =
     let module Simulator = Cyclesim.With_interface (I) (O) in
     let sim = Simulator.create (create ~spec:r_sync) in

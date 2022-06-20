@@ -3,9 +3,6 @@ open! Hardcaml
 open! Signal
 open Global
 
-(** An implementation of the draw instruction in hardware. There are five
-    cycles per bit as we need to do an unaligned write into a bitvector. *)
-
 module Draw_state = struct
   (** Writing a byte is a five cycle process because writes don't need to be
       aligned. 
@@ -191,8 +188,6 @@ let create ~spec (i : _ I.t) =
 ;;
 
 module Test = struct
-  let cycle sim (_o : _ O.t) = Cyclesim.cycle sim
-
   let test ~cycles ~x ~y ~n ~i =
     let module Simulator = Cyclesim.With_interface (I) (O) in
     let sim = Simulator.create (create ~spec:r_sync) in

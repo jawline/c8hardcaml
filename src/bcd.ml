@@ -2,8 +2,6 @@ open! Core
 open! Hardcaml
 open! Signal
 
-(** An implementation of binary coded decimals by lookup table *)
-
 module I = struct
   type 'a t =
     { clock : 'a [@bits 1]
@@ -57,8 +55,6 @@ let create ({ input; _ } : _ I.t) =
 ;;
 
 module Test = struct
-  let cycle sim (_o : _ O.t) = Cyclesim.cycle sim
-
   let test ~inp =
     let module Simulator = Cyclesim.With_interface (I) (O) in
     let sim = Simulator.create create in

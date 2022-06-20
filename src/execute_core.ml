@@ -35,10 +35,10 @@ let create ~spec ~keys ~executing_opcode () =
   let opcode_final_nibble = select executing_opcode 3 0 in
   let opcode_second_nibble = select executing_opcode 11 8 in
   let opcode_first_register =
-    Target_register.create ~registers:registers.registers (select executing_opcode 11 8)
+    Target_register.create registers (select executing_opcode 11 8)
   in
   let opcode_second_register =
-    Target_register.create ~registers:registers.registers (select executing_opcode 7 4)
+    Target_register.create registers (select executing_opcode 7 4)
   in
   let opcode_first_register_9bit = uresize opcode_first_register.value 9 in
   let opcode_second_register_9bit = uresize opcode_second_register.value 9 in
