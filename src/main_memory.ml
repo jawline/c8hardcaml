@@ -4,26 +4,14 @@ open Signal
 open Always
 open Global
 
-(* A helper module to propagate wires that set the read and write
-    data lines in board RAM. *)
-
 let ram_size = 4096
-
-(* The stack stores return locations only. A size of 2x128 = 128 nested calls before
-    a stack overflow. *)
 let stack_size = 2 * 128
-
-(** One bit per pixel in a 64x32 display *)
-let frame_buffer_size = screen_width * screen_height / 8
-
-let memory_size = ram_size + stack_size + frame_buffer_size
+let framebuffer_size = screen_width * screen_height / 8
+let memory_size = ram_size + stack_size + framebuffer_size
 let stack_start = ram_size
 let framebuffer_start = ram_size + stack_size
-
-(* We can store the machine ROM anywhere in the first 512 bytes, let's just go with 0 *)
 let machine_rom_offset = 0
 
-(* This ROM should be programmed into main memory before enabling the CPU. It contains font data *)
 let machine_rom =
   [| 0xF0
    ; 0x90
@@ -217,10 +205,6 @@ module Wires = struct
     ; write_data = write_data.value
     ; read_address = read_address.value
     }
-  ;;
-
-  let t_of_in_circuit ({ read_data } : _ In_circuit.I.t) =
-    to_main_memory ~read_data (create ())
   ;;
 end
 

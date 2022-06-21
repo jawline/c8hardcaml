@@ -61,7 +61,11 @@ let startup
 let create ~spec { I.clear; clock; enable; memory; keys } : _ O.t =
   let open Always in
   let open Variable in
-  let ram = Main_memory.Wires.t_of_in_circuit memory in
+  let ram =
+    Main_memory.Wires.to_main_memory
+      ~read_data:memory.read_data
+      (Main_memory.Wires.create ())
+  in
   let random_state_seed = wire ~default:(Signal.of_int ~width:64 0) in
   let random_state =
     Xor_shift.create { Xor_shift.I.clock; clear; seed = random_state_seed.value }
