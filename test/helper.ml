@@ -17,11 +17,11 @@ let pp v = Bits.to_int !v |> Int.to_string
 let ppb v = Bits.to_string !v
 
 let sim_set_write_ram sim (i : _ I.t) addr data =
-  i.program := Bits.of_int ~width:(Sized.size `Bit) 1;
-  i.program_write_enable := Bits.of_int ~width:(Sized.size `Bit) 1;
-  i.program_address := Bits.of_int ~width:(Sized.size `Main_address) addr;
-  i.program_data := Bits.of_int ~width:(Sized.size `Byte) data;
-  i.program_pc := Bits.of_int ~width:(Sized.size `Address) 0;
+  i.program := Bits.of_int ~width:(wsz `Bit) 1;
+  i.program_write_enable := Bits.of_int ~width:(wsz `Bit) 1;
+  i.program_address := Bits.of_int ~width:(wsz `Main_address) addr;
+  i.program_data := Bits.of_int ~width:(wsz `Byte) data;
+  i.program_pc := Bits.of_int ~width:(wsz `Address) 0;
   Cyclesim.cycle sim;
   Cyclesim.cycle sim;
   Cyclesim.cycle sim;
@@ -43,9 +43,9 @@ let sim_program_rom sim (i : _ I.t) ~rom =
 ;;
 
 let sim_read_addr sim (i : _ I.t) (o : _ O.t) addr =
-  i.program := Bits.of_int ~width:(Sized.size `Bit) 1;
-  i.program_write_enable := Bits.of_int ~width:(Sized.size `Bit) 0;
-  i.program_address := Bits.of_int ~width:(Sized.size `Main_address) addr;
+  i.program := Bits.of_int ~width:(wsz `Bit) 1;
+  i.program_write_enable := Bits.of_int ~width:(wsz `Bit) 0;
+  i.program_address := Bits.of_int ~width:(wsz `Main_address) addr;
   Cyclesim.cycle sim;
   Cyclesim.cycle sim;
   Cyclesim.cycle sim;
@@ -65,7 +65,7 @@ let sim_read_framebuffer sim (i : _ I.t) (o : _ O.t) =
     i
     o
     C8.Main_memory.framebuffer_start
-    C8.Main_memory.frame_buffer_size
+    C8.Main_memory.framebuffer_size
 ;;
 
 let draw_border_around_canvas ~canvas ~width ~height =

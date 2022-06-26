@@ -117,7 +117,7 @@ let create ~spec (i : _ I.t) =
   let finished = wire ~default:(Signal.of_int ~width:1 0) in
   let ram = Main_memory.Wires.create () in
   (* Step calculates the current depth into the draw operation *)
-  let step = Variable.reg ~enable:vdd ~width:(Sized.size `Address) spec in
+  let step = Variable.reg ~enable:vdd ~width:(wsz `Address) spec in
   let last_step = step.value ==: n in
   let framebuffer_address =
     let step_value_as_address = to_main_addr step.value in

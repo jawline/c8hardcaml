@@ -70,7 +70,7 @@ let create ~spec { I.clear; clock; enable; memory; keys } : _ O.t =
   let random_state =
     Xor_shift.create { Xor_shift.I.clock; clear; seed = random_state_seed.value }
   in
-  let executing_opcode = Immediate_register.create ~spec ~width:(Sized.size `Opcode) in
+  let executing_opcode = Immediate_register.create ~spec ~width:(wsz `Opcode) in
   let error = reg ~enable:vdd ~width:1 spec in
   let done_ = wire_false () in
   let in_execute = wire ~default:(Signal.of_int ~width:1 0) in

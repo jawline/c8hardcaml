@@ -398,7 +398,7 @@ let call_instruction
         (step.value ==:. 1)
         [ ram.write_enable <--. 1
         ; ram.write_address <-- to_main_addr (sp.value +:. (Main_memory.stack_start + 1))
-        ; ram.write_data <-- uresize (select next_pc 3 0) (Sized.size `Byte)
+        ; ram.write_data <-- uresize (select next_pc 3 0) (wsz `Byte)
         ; sp <-- sp.value +:. 2
         ; pc <-- opcode_address
         ; ok

@@ -181,15 +181,13 @@ module Wires = struct
   (* This creates t of wires for use as an intermediate store
            of main memory assignments. Main memory is not wired to it. *)
   let create () =
-    let write_enable =
-      Variable.wire ~default:(Signal.of_int ~width:(Sized.size `Bit) 0)
-    in
+    let write_enable = Variable.wire ~default:(Signal.of_int ~width:(wsz `Bit) 0) in
     let write_address =
-      Variable.wire ~default:(Signal.of_int ~width:(Sized.size `Main_address) 0)
+      Variable.wire ~default:(Signal.of_int ~width:(wsz `Main_address) 0)
     in
-    let write_data = Variable.wire ~default:(Signal.of_int ~width:(Sized.size `Byte) 0) in
+    let write_data = Variable.wire ~default:(Signal.of_int ~width:(wsz `Byte) 0) in
     let read_address =
-      Variable.wire ~default:(Signal.of_int ~width:(Sized.size `Main_address) 0)
+      Variable.wire ~default:(Signal.of_int ~width:(wsz `Main_address) 0)
     in
     { write_enable; write_address; write_data; read_address }
   ;;
