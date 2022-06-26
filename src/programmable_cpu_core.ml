@@ -3,9 +3,6 @@ open! Hardcaml
 open! Signal
 open Global
 
-(* Foundation of a CHIP-8 core. Manages the fetch execute cycle
-   and maintains a random state for opcodes to use. *)
-
 module I = struct
   type 'a t =
     { clock : 'a [@bits 1]
