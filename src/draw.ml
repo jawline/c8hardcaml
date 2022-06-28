@@ -107,6 +107,7 @@ let draw_side
 let create ~spec (i : _ I.t) =
   let open Always in
   let open Variable in
+  printf "WARN: Collision bit when drawing is not implemented\n";
   (* TODO: Collision bit *)
   (* TODO: Test this instruction *)
   let state = State_machine.create (module Draw_state) ~enable:vdd spec in
@@ -232,6 +233,7 @@ module Test = struct
     test ~cycles:64 ~x:12 ~y:5 ~n:2 ~i:231;
     [%expect
       {|
+      WARN: Collision bit when drawing is not implemented
       Finished: 0 Step: 0 Read addr: 0  Write addr: 0 0 0
       Starting main loop
       Finished: 0 Step: 0 Read addr: 4393  Write addr: 0 0 0

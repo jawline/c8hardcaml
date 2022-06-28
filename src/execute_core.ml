@@ -174,6 +174,7 @@ let memory_instructions
           ]
       ]
   in
+  printf "WARN: Sound is not implemented\n";
   let delay_register = reg ~width:16 spec in
   proc
     [ (* Add VX to I without changing the flags register *)
@@ -216,6 +217,7 @@ let memory_instructions
         ; done_with_instruction
         ; pc <-- pc.value +:. 2
         ]
+    ; when_ (opcode_immediate ==:. 0x18) [ done_with_instruction; pc <-- pc.value +:. 2 ]
     ]
 ;;
 
