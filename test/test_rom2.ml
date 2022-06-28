@@ -13,6 +13,7 @@ let%expect_test "Cave" =
     ~create;
   [%expect
     {|
+      "TODO: Clear screen (make a Memcpy module?)"
       ⡿⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⣹
       ⡇⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⢹
       ⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸
@@ -54,7 +55,7 @@ let%expect_test "Airplane" =
       "Called from Base__Error.raise_s in file \"src/error.ml\", line 10, characters 19-40"
       "Called from Base__Sequence.iter.loop in file \"src/sequence.ml\", line 360, characters 6-9"
       "Called from C8_test__Helper.test_rom in file \"test/helper.ml\", line 138, characters 2-743"
-      "Called from C8_test__Test_rom2.(fun) in file \"test/test_rom2.ml\", line 38, characters 2-130"
+      "Called from C8_test__Test_rom2.(fun) in file \"test/test_rom2.ml\", line 39, characters 2-130"
       "Called from Async_kernel__Deferred0.bind.(fun) in file \"src/deferred0.ml\", line 54, characters 64-69"
       "Called from Async_kernel__Job_queue.run_jobs in file \"src/job_queue.ml\", line 167, characters 6-47"
       "Caught by monitor block_on_async"))
@@ -64,19 +65,20 @@ let%expect_test "Airplane" =
 
   Trailing output
   ---------------
+  "TODO: Clear screen (make a Memcpy module?)"
   ERROR: ((core
-    ((in_execute 1) (in_fetch 0) (op 1000000011111000)
-     (working_op 1000000000100000)
+    ((in_execute 0) (in_fetch 1) (op 0000000011101110)
+     (working_op 0000000000100000)
      (registers
-      ((pc 001101010100) (i 001101011111) (sp 000000000010)
+      ((pc 001101010100) (i 001101011111) (sp 000000000000)
        (registers
         (00000000 00000000 00000000 00000001 00011101 00000000 00000000
          00000000 00000000 00000000 00000000 00000100 00000001 00000000
          00000010 00000000))))
-     (fetch_finished 0) (fetch_cycle 00) (last_op 1000000011111000)
-     (executor_done 0) (executor_error 1)
+     (fetch_finished 0) (fetch_cycle 00) (last_op 0000000011101110)
+     (executor_done 0) (executor_error 0)
      (memory
-      ((read_address 0000000000000000) (write_enable 0)
+      ((read_address 0000001101010100) (write_enable 0)
        (write_address 0000000000000000) (write_data 00000000)))
      (random_state 01110001)))
    (read_data 00100000))
@@ -109,6 +111,7 @@ let%expect_test "Sirpinski" =
     ~create;
   [%expect
     {|
+    "TODO: Clear screen (make a Memcpy module?)"
     ⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢉⡹⢏⡉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹
     ⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠁⠈⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸
     ⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸
@@ -150,7 +153,7 @@ let%expect_test "Rocket Launcher" =
       "Called from Base__Error.raise_s in file \"src/error.ml\", line 10, characters 19-40"
       "Called from Base__Sequence.iter.loop in file \"src/sequence.ml\", line 360, characters 6-9"
       "Called from C8_test__Helper.test_rom in file \"test/helper.ml\", line 138, characters 2-743"
-      "Called from C8_test__Test_rom2.(fun) in file \"test/test_rom2.ml\", line 134, characters 2-129"
+      "Called from C8_test__Test_rom2.(fun) in file \"test/test_rom2.ml\", line 137, characters 2-129"
       "Called from Async_kernel__Deferred0.bind.(fun) in file \"src/deferred0.ml\", line 54, characters 64-69"
       "Called from Async_kernel__Job_queue.run_jobs in file \"src/job_queue.ml\", line 167, characters 6-47"
       "Caught by monitor block_on_async"))
@@ -160,19 +163,20 @@ let%expect_test "Rocket Launcher" =
 
   Trailing output
   ---------------
+  "TODO: Clear screen (make a Memcpy module?)"
   ERROR: ((core
-    ((in_execute 1) (in_fetch 0) (op 1111111100000000)
-     (working_op 1111111100100010)
+    ((in_execute 0) (in_fetch 1) (op 0000000011101110)
+     (working_op 0000000000100010)
      (registers
-      ((pc 001001011110) (i 001001101000) (sp 000000000010)
+      ((pc 001001011110) (i 001001101000) (sp 000000000000)
        (registers
         (01000000 00011000 00011001 00000000 00000000 00000000 00000000
          00000000 00011110 00010001 00000000 00000000 00000000 00000000
          00000000 00000000))))
-     (fetch_finished 0) (fetch_cycle 00) (last_op 1111111100000000)
-     (executor_done 0) (executor_error 1)
+     (fetch_finished 0) (fetch_cycle 00) (last_op 0000000011101110)
+     (executor_done 0) (executor_error 0)
      (memory
-      ((read_address 0000000000000000) (write_enable 0)
+      ((read_address 0000001001011110) (write_enable 0)
        (write_address 0000000000000000) (write_data 00000000)))
      (random_state 00011011)))
    (read_data 00100010))
