@@ -122,7 +122,7 @@ let sim_cycle_not_programming sim (i : _ I.t) (o : _ O.t) ~print =
 (* Average opcode takes 3 cycles to execute (2 to fetch, one to execute) *)
 let rough_cycles_per_second = 512 * 3
 
-let test_rom ~cycles ~rom_file ~create ~print_on_cycle ~print_on_exit =
+let test_rom ~print_at_cycles ~rom_file ~create ~print_on_cycle ~print_on_exit =
   let module Simulator = Cyclesim.With_interface (I) (O) in
   let sim = Simulator.create (create ~spec:r_sync) in
   let inputs : _ I.t = Cyclesim.inputs sim in
@@ -134,23 +134,23 @@ let test_rom ~cycles ~rom_file ~create ~print_on_cycle ~print_on_exit =
   sim_program_rom sim inputs ~rom:(String.to_list rom_file |> List.map ~f:Char.to_int);
   (* Set all keys to low *)
   List.iter inputs.keys.state ~f:(fun key -> key := Bits.of_int ~width:1 0);
-  (* Simulate the program we just wrote running for 100 cycles *)
-  Sequence.range 0 cycles
-  |> Sequence.iter ~f:(fun i ->
-         (* Every second roughly randomly re-assign pressed keys *)
-         if i % (rough_cycles_per_second / 5) = 0
-         then
-           List.iter inputs.keys.state ~f:(fun key ->
-               key := Bits.of_int ~width:1 (Random.State.int rand 1));
-         sim_cycle_not_programming sim inputs outputs ~print:print_on_cycle;
-         if Bits.to_int !(outputs.core.executor_error) = 1
-         then (
-           (* Print registers and framebuffer on error *) printf "ERROR: ";
-           sim_cycle_not_programming sim inputs outputs ~print:true;
-           printf "%s" (frame_buffer_as_string sim inputs outputs);
-           raise_s [%message "Error in ROM"])
-         else ());
-  sim_cycle_not_programming sim inputs outputs ~print:print_on_exit;
-  printf "%s\n" (frame_buffer_as_string sim inputs outputs);
-  ()
+  List.iter print_at_cycles ~f:(fun cycles ->
+      (* Simulate the program we just wrote running for 100 cycles *)
+      Sequence.range 0 cycles
+      |> Sequence.iter ~f:(fun i ->
+             (* Every second roughly randomly re-assign pressed keys *)
+             if i % (rough_cycles_per_second / 5) = 0
+             then
+               List.iter inputs.keys.state ~f:(fun key ->
+                   key := Bits.of_int ~width:1 (Random.State.int rand 1));
+             sim_cycle_not_programming sim inputs outputs ~print:print_on_cycle;
+             if Bits.to_int !(outputs.core.executor_error) = 1
+             then (
+               (* Print registers and framebuffer on error *) printf "ERROR: ";
+               sim_cycle_not_programming sim inputs outputs ~print:true;
+               printf "%s" (frame_buffer_as_string sim inputs outputs);
+               raise_s [%message "Error in ROM"])
+             else ());
+      printf "%s\n" (frame_buffer_as_string sim inputs outputs));
+  sim_cycle_not_programming sim inputs outputs ~print:print_on_exit
 ;;
