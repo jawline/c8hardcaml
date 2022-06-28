@@ -11,7 +11,7 @@ module I : sig
     ; enable : 'a [@bits 1]
     ; address : 'a [@bits 16]
     ; size : 'a [@bits 8]
-    ; write_data : 'a [@bits 8]
+    ; write_value : 'a [@bits 8]
     ; memory : 'a Main_memory.In_circuit.I.t
     }
   [@@deriving sexp_of, hardcaml]

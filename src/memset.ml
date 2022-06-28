@@ -10,7 +10,7 @@ module I = struct
     ; enable : 'a [@bits 1]
     ; address : 'a [@bits 16]
     ; size : 'a [@bits 8]
-    ; write_data : 'a [@bits 8]
+    ; write_value : 'a [@bits 8]
     ; memory : 'a Main_memory.In_circuit.I.t
     }
   [@@deriving sexp_of, hardcaml]
@@ -36,10 +36,10 @@ let create ~spec (i : _ I.t) =
         i.enable
         [ ram.read_address <--. 0
         ; ram.write_enable <--. 1
-        ; ram.write_data <-- i.write_data
+        ; ram.write_data <-- i.write_value
         ; if_
             (is_set set_in_progress.value)
-            [ ram.write_address <-- write_index.value
+            [ ram.write_address <-- (i.address +: (to_main_addr write_index.value))
             ; write_index <-- write_index.value +:. 1
             ; when_
                 (write_index.value ==: i.size -:. 1)
@@ -72,6 +72,7 @@ module Test = struct
     inputs.enable := Bits.of_int ~width:1 1;
     inputs.address := Bits.of_int ~width:16 4096;
     inputs.size := Bits.of_int ~width:8 128;
+  inputs.write_value := Bits.of_int ~width:8 0xFF;
     let print_outputs () =
       let pp v = Bits.to_int !v in
       printf
