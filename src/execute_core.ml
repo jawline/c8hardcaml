@@ -406,6 +406,27 @@ let call_instruction
     ]
 ;;
 
+module Opcode_first_nibble = struct
+  type t =
+    | No_op_cls_or_ret
+    | Immediate_jump
+    | Immediate_call
+    | Skip_equal_imm
+    | Skip_not_equal_imm
+    | Skip_equal_reg
+    | Load_immediate
+    | Add_immediate
+    | Register_instructions
+    | Skip_not_equal_reg
+    | Load_i_imm
+    | Jump_imm_plus_v0
+    | Random
+    | Draw
+    | Keyboard
+    | Memory_instructions
+  [@@deriving enumerate]
+end
+
 let execute_instruction
     ~spec
     ~clock
@@ -440,59 +461,43 @@ let execute_instruction
         o, o.memory)
   in
   let ok = proc [ error <--. 0; done_ <--. 1 ] in
-  (* TODO: Replace hardcoded constants with names *)
-  proc
-    [ (* This error state will become 0 if any op is matched *)
-      error <--. 1
-    ; (* We use 0 (originally native code call) as a No-op *)
-      when_ (primary_op ==:. 0) [ no_op ok t ]
-    ; (* Jump to the 12 bits at the end of the opcode *)
-      when_ (primary_op ==:. 1) [ assign_address pc ok t ]
-    ; (* Push (PC + 2) to the stack and then jump to the 12 bits at the end of the opcode *)
-      when_ (primary_op ==:. 2) [ error <--. 0; call_instruction ~spec ~ram ok t ]
-    ; (* Skip the next instruction of register is equal to immediate *)
-      when_ (primary_op ==:. 3) [ skip_imm_inv ( ==: ) ok t ]
-    ; (* Skip the next instruction of register is not equal to immediate (dual of the opcode above) *)
-      when_ (primary_op ==:. 4) [ skip_imm_inv ( <>: ) ok t ]
-    ; (* Skip the next instruction of register is equal to the second target register *)
-      when_ (primary_op ==:. 5) [ skip_reg_inv ( ==: ) ok t ]
-    ; (* Assigns the register pointed to by the second nibble of the opcode to the value stored in the final byte of the opcode *)
-      when_ (primary_op ==:. 6) [ combine_register_imm ~f:(fun _ x -> x) ok t ]
-    ; (* Accumulate an immediate into the register addressed to by the second nibble of the opcode *)
-      when_ (primary_op ==:. 7) [ combine_register_imm ~f:(fun x y -> x +: y) ok t ]
-    ; (* 8__x opcodes are register operations *)
-      when_ (primary_op ==:. 8) [ register_instructions ok t ]
-    ; (* Skip the next instruction of register is not equal to the second target register *)
-      when_ (primary_op ==:. 9) [ skip_reg_inv ( <>: ) ok t ]
-    ; (* Set the i register to the opcode address *)
-      when_ (primary_op ==:. 10) [ assign_address i ok t; pc <-- pc.value +:. 2 ]
-    ; (* Set the pc register to a fixed address + V0 *)
-      when_
-        (primary_op ==:. 11)
-        [ assign_address ~mutate:(fun pc -> uresize register_zero.value 12 +: pc) pc ok t
-        ]
-    ; (* XOR the first register with the state of the PRNG *)
-      when_
-        (primary_op ==:. 12)
+  let implementation_of_opcode_first_nibble ~opcode =
+    let open Always in
+    match opcode with
+    | Opcode_first_nibble.No_op_cls_or_ret -> no_op ok t
+    | Immediate_jump -> assign_address pc ok t
+    | Immediate_call -> proc [ error <--. 0; call_instruction ~spec ~ram ok t ]
+    | Skip_equal_imm -> skip_imm_inv ( ==: ) ok t
+    | Skip_not_equal_imm -> skip_imm_inv ( <>: ) ok t
+    | Skip_equal_reg -> skip_reg_inv ( ==: ) ok t
+    | Load_immediate -> combine_register_imm ~f:(fun _ x -> x) ok t
+    | Add_immediate -> combine_register_imm ~f:(fun x y -> x +: y) ok t
+    | Register_instructions -> register_instructions ok t
+    | Skip_not_equal_reg -> skip_reg_inv ( <>: ) ok t
+    | Load_i_imm -> proc [ assign_address i ok t; pc <-- pc.value +:. 2 ]
+    | Jump_imm_plus_v0 ->
+      assign_address ~mutate:(fun pc -> uresize register_zero.value 12 +: pc) pc ok t
+    | Random ->
+      proc
         [ Target_register.assign
             opcode_first_register
             (opcode_immediate &: select random_state.pseudo_random 7 0)
         ; pc <-- pc.value +:. 2
         ; ok
         ]
-    ; when_
-        (primary_op ==:. 13)
+    | Draw ->
+      proc
         [ draw_enable <--. 1
         ; draw_wiring
         ; error <--. 0
         ; when_ draw_implementation.finished [ ok; pc <-- pc.value +:. 2 ]
         ]
-    ; when_
-        (primary_op ==:. 14)
+    | Keyboard ->
+      proc
         [ key_instructions (proc [ error <--. 0 ]) (proc [ error <--. 0; done_ <--. 1 ]) t
         ]
-    ; when_
-        (primary_op ==:. 15)
+    | Memory_instructions ->
+      proc
         [ memory_instructions
             ~clock
             ~clear
@@ -502,5 +507,22 @@ let execute_instruction
             (proc [ error <--. 0; done_ <--. 1 ])
             t
         ]
+  in
+  let opcode_implementations =
+    List.mapi
+      ~f:(fun opcode_index opcode ->
+        proc
+          [ when_
+              (primary_op ==:. opcode_index)
+              [ implementation_of_opcode_first_nibble ~opcode ]
+          ])
+      Opcode_first_nibble.all
+    |> proc
+  in
+  (* TODO: Replace hardcoded constants with names *)
+  proc
+    [ (* This error state will become 0 if any op is matched *)
+      error <--. 1
+    ; opcode_implementations
     ]
 ;;

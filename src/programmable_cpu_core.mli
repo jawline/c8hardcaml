@@ -27,4 +27,4 @@ module O : sig
   [@@deriving sexp_of, hardcaml]
 end
 
-val create : spec:Reg_spec.t -> Signal.t I.t -> Signal.t O.t 
+val create : spec:Reg_spec.t -> Signal.t I.t -> Signal.t O.t
