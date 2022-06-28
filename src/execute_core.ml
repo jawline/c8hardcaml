@@ -59,8 +59,7 @@ let create ~spec ~keys ~executing_opcode () =
 ;;
 
 let key_instructions
-    ok
-    done_with_instruction
+    ~done_with_instruction
     { registers = { pc; _ }; opcode_first_register; opcode_immediate; keys; _ }
   =
   let open Always in
@@ -74,8 +73,7 @@ let key_instructions
     ; when_
         (opcode_immediate ==:. 0x9E)
         [ (* Skip if Keys[Vx] is pressed *)
-          ok
-        ; done_with_instruction
+          done_with_instruction
         ; if_
             (key_under_vx.value ==:. 1)
             [ pc <-- pc.value +:. 4 ]
@@ -84,8 +82,7 @@ let key_instructions
     ; when_
         (opcode_immediate ==:. 0xA1)
         [ (* Skip if Keys[Vx] is not pressed *)
-          ok
-        ; done_with_instruction
+          done_with_instruction
         ; if_
             (key_under_vx.value ==:. 1)
             [ pc <-- pc.value +:. 2 ]
@@ -223,7 +220,7 @@ let memory_instructions
 ;;
 
 let register_instructions
-    ok
+    ~done_with_instruction
     { registers = { pc; _ }
     ; flag_register
     ; opcode_first_register
@@ -246,7 +243,7 @@ let register_instructions
         (opcode_final_nibble ==:. 0)
         [ Target_register.assign opcode_first_register opcode_second_register.value
         ; pc <-- pc.value +:. 2
-        ; ok
+        ; done_with_instruction
         ]
     ; (* Or a register with another register *)
       when_
@@ -255,7 +252,7 @@ let register_instructions
             opcode_first_register
             (opcode_first_register.value |: opcode_second_register.value)
         ; pc <-- pc.value +:. 2
-        ; ok
+        ; done_with_instruction
         ]
     ; (* And a register with another register *)
       when_
@@ -264,7 +261,7 @@ let register_instructions
             opcode_first_register
             (opcode_first_register.value &: opcode_second_register.value)
         ; pc <-- pc.value +:. 2
-        ; ok
+        ; done_with_instruction
         ]
     ; (* Xor a register with another register *)
       when_
@@ -273,7 +270,7 @@ let register_instructions
             opcode_first_register
             (opcode_first_register.value ^: opcode_second_register.value)
         ; pc <-- pc.value +:. 2
-        ; ok
+        ; done_with_instruction
         ]
     ; (* Add a register to another *)
       when_
@@ -282,7 +279,7 @@ let register_instructions
         ; (* Copy over the carry flag *)
           flag_register <-- uresize (select add_result 8 8) 8
         ; pc <-- pc.value +:. 2
-        ; ok
+        ; done_with_instruction
         ]
     ; (* Sub a register to another *)
       when_
@@ -291,7 +288,7 @@ let register_instructions
         ; (* TODO: I don't think this correctly calculates a carry *)
           flag_register <-- uresize (select sub_result 8 8) 8
         ; pc <-- pc.value +:. 2
-        ; ok
+        ; done_with_instruction
         ]
     ; (* Shr register by 1 *)
       when_
@@ -300,7 +297,7 @@ let register_instructions
         ; flag_register <-- uresize (lsb opcode_first_register.value) 8
           (* It doesn't matter that this happens after because registers update after the cycle *)
         ; pc <-- pc.value +:. 2
-        ; ok
+        ; done_with_instruction
         ]
     ; (* Same as sub but the operand order is reversed  *)
       when_
@@ -309,7 +306,7 @@ let register_instructions
         ; (* TODO: I don't think this correctly calculates a carry *)
           flag_register <-- uresize (select inv_sub_result 8 8) 8
         ; pc <-- pc.value +:. 2
-        ; ok
+        ; done_with_instruction
         ]
     ; (* Sll register by 1 and store msb in carry *)
       when_
@@ -317,93 +314,16 @@ let register_instructions
         [ Target_register.assign opcode_first_register (sll opcode_first_register.value 1)
         ; flag_register <-- uresize (msb opcode_first_register.value) 8
         ; pc <-- pc.value +:. 2
-        ; ok
+        ; done_with_instruction
         ]
     ]
 ;;
 
-let ret ~spec ~(ram : Main_memory.t) ok { registers = { pc; sp; _ }; _ } =
-  let open Always in
-  let prev_sp = sp.value -:. 2 in
-  let step = Variable.reg ~width:2 spec in
-  let first_read = Variable.reg ~width:8 spec in
-  let next_pc = pc.value +:. 2 in
-  proc
-    [ step <-- step.value +:. 1
-    ; when_ (step.value ==:. 0) [ ram.read_address <-- to_main_addr prev_sp; ok ]
-    ; when_
-        (step.value ==:. 1)
-        [ ram.read_address <-- to_main_addr (prev_sp +:. 1); first_read <-- ram.read_data ]
-    ; when_ (step.value ==:. 2) [ step <--. 0; sp <-- sp.value -:. 2; pc <-- next_pc; ok ]
-    ]
-;;
-
-let no_op ~spec ~ram ok ({ registers = { pc; _ }; opcode_immediate; _ } as t) =
-  let open Always in
-  print_s [%message "TODO: Clear screen (make a Memcpy module?)"];
-  (* Strictly the CHIP-8 doesn't have a no-op but this would 
-     be a host machine call and it is useful for testing. *)
-  proc
-    [ when_ (opcode_immediate ==:. 0) [ pc <-- pc.value +:. 2; ok ]
-    ; when_ (opcode_immediate ==:. 0xEE) [ ret ~spec ~ram ok t ]
-    ; when_ (opcode_immediate ==:. 0xE0) [ pc <-- pc.value +:. 2 ; ok ]
-    ]
-;;
-
-let assign_address ?(mutate = Fn.id) register ok { opcode_address; _ } =
-  let open Always in
-  proc [ register <-- mutate opcode_address; ok ]
-;;
-
-let skip_imm_inv
-    invariant
-    ok
-    { registers = { pc; _ }; opcode_first_register; opcode_immediate; _ }
-  =
-  let open Always in
-  proc
-    [ if_
-        (invariant opcode_first_register.value opcode_immediate)
-        [ (* Skip the next instruction *) pc <-- pc.value +:. 4 ]
-        [ (* We do not skip the next instruction *) pc <-- pc.value +:. 2 ]
-    ; ok
-    ]
-;;
-
-let skip_reg_inv
-    invariant
-    ok
-    { registers = { pc; _ }; opcode_first_register; opcode_second_register; _ }
-  =
-  let open Always in
-  proc
-    [ if_
-        (invariant opcode_first_register.value opcode_second_register.value)
-        [ (* Skip the next instruction *) pc <-- pc.value +:. 4 ]
-        [ (* We do not skip the next instruction *) pc <-- pc.value +:. 2 ]
-    ; ok
-    ]
-;;
-
-let combine_register_imm
-    ~f
-    ok
-    { registers = { pc; _ }; opcode_first_register; opcode_immediate; _ }
-  =
-  let open Always in
-  proc
-    [ Target_register.assign
-        opcode_first_register
-        (f opcode_first_register.value opcode_immediate)
-    ; pc <-- pc.value +:. 2
-    ; ok
-    ]
-;;
-
 let call_instruction
+    ~no_error
+    ~done_with_instruction
     ~spec
     ~(ram : Main_memory.t)
-    ok
     { registers = { pc; sp; _ }; opcode_address; _ }
   =
   let open Always in
@@ -411,6 +331,7 @@ let call_instruction
   let next_pc = pc.value +:. 2 in
   proc
     [ step <-- step.value +:. 1
+    ; no_error
     ; when_
         (step.value ==:. 0)
         [ ram.write_enable <--. 1
@@ -424,8 +345,106 @@ let call_instruction
         ; ram.write_data <-- uresize (select next_pc 3 0) (wsz `Byte)
         ; sp <-- sp.value +:. 2
         ; pc <-- opcode_address
-        ; ok
+        ; done_with_instruction
         ]
+    ]
+;;
+
+let ret_instruction
+    ~no_error
+    ~done_with_instruction
+    ~spec
+    ~(ram : Main_memory.t)
+    { registers = { pc; sp; _ }; _ }
+  =
+  let open Always in
+  let prev_sp = sp.value -:. 2 in
+  let step = Variable.reg ~width:2 spec in
+  let first_read = Variable.reg ~width:8 spec in
+  let new_pc = concat_msb [ first_read.value; select ram.read_data 3 0 ] in
+  proc
+    [ step <-- step.value +:. 1
+    ; no_error
+    ; when_ (step.value ==:. 0) [ ram.read_address <-- to_main_addr prev_sp; no_error ]
+    ; when_
+        (step.value ==:. 1)
+        [ ram.read_address <-- to_main_addr (prev_sp +:. 1)
+        ; first_read <-- ram.read_data
+        ]
+    ; when_
+        (step.value ==:. 2)
+        [ step <--. 0; sp <-- sp.value -:. 2; pc <-- new_pc; done_with_instruction ]
+    ]
+;;
+
+let no_op
+    ~spec
+    ~ram
+    ~no_error
+    ~done_with_instruction
+    ({ registers = { pc; _ }; opcode_immediate; _ } as t)
+  =
+  let open Always in
+  print_s [%message "TODO: Clear screen (make a Memcpy module?)"];
+  (* Strictly the CHIP-8 doesn't have a no-op but this would 
+     be a host machine call and it is useful for testing. *)
+  proc
+    [ when_ (opcode_immediate ==:. 0) [ pc <-- pc.value +:. 2; done_with_instruction ]
+    ; when_
+        (opcode_immediate ==:. 0xEE)
+        [ ret_instruction ~no_error ~done_with_instruction ~spec ~ram t ]
+    ; when_ (opcode_immediate ==:. 0xE0) [ pc <-- pc.value +:. 2; done_with_instruction ]
+    ]
+;;
+
+let assign_address ?(mutate = Fn.id) ~done_with_instruction register { opcode_address; _ }
+  =
+  let open Always in
+  proc [ register <-- mutate opcode_address; done_with_instruction ]
+;;
+
+let skip_imm_inv
+    ~done_with_instruction
+    invariant
+    { registers = { pc; _ }; opcode_first_register; opcode_immediate; _ }
+  =
+  let open Always in
+  proc
+    [ if_
+        (invariant opcode_first_register.value opcode_immediate)
+        [ (* Skip the next instruction *) pc <-- pc.value +:. 4 ]
+        [ (* We do not skip the next instruction *) pc <-- pc.value +:. 2 ]
+    ; done_with_instruction
+    ]
+;;
+
+let skip_reg_inv
+    ~done_with_instruction
+    invariant
+    { registers = { pc; _ }; opcode_first_register; opcode_second_register; _ }
+  =
+  let open Always in
+  proc
+    [ if_
+        (invariant opcode_first_register.value opcode_second_register.value)
+        [ (* Skip the next instruction *) pc <-- pc.value +:. 4 ]
+        [ (* We do not skip the next instruction *) pc <-- pc.value +:. 2 ]
+    ; done_with_instruction
+    ]
+;;
+
+let combine_register_imm
+    ~done_with_instruction
+    ~f
+    { registers = { pc; _ }; opcode_first_register; opcode_immediate; _ }
+  =
+  let open Always in
+  proc
+    [ Target_register.assign
+        opcode_first_register
+        (f opcode_first_register.value opcode_immediate)
+    ; pc <-- pc.value +:. 2
+    ; done_with_instruction
     ]
 ;;
 
@@ -483,42 +502,50 @@ let execute_instruction
         in
         o, o.memory)
   in
-  let ok = proc [ error <--. 0; done_ <--. 1 ] in
+  let no_error = proc [ error <--. 0 ] in
+  let done_with_instruction = proc [ no_error; done_ <--. 1 ] in
   let implementation_of_opcode_first_nibble ~opcode =
     let open Always in
     match opcode with
-    | Opcode_first_nibble.No_op_cls_or_ret -> no_op ~spec ~ram ok t
-    | Immediate_jump -> assign_address pc ok t
-    | Immediate_call -> proc [ error <--. 0; call_instruction ~spec ~ram ok t ]
-    | Skip_equal_imm -> skip_imm_inv ( ==: ) ok t
-    | Skip_not_equal_imm -> skip_imm_inv ( <>: ) ok t
-    | Skip_equal_reg -> skip_reg_inv ( ==: ) ok t
-    | Load_immediate -> combine_register_imm ~f:(fun _ x -> x) ok t
-    | Add_immediate -> combine_register_imm ~f:(fun x y -> x +: y) ok t
-    | Register_instructions -> register_instructions ok t
-    | Skip_not_equal_reg -> skip_reg_inv ( <>: ) ok t
-    | Load_i_imm -> proc [ assign_address i ok t; pc <-- pc.value +:. 2 ]
+    | Opcode_first_nibble.No_op_cls_or_ret ->
+      no_op ~no_error ~done_with_instruction ~spec ~ram t
+    | Immediate_jump -> assign_address ~done_with_instruction pc t
+    | Immediate_call ->
+      proc [ call_instruction ~spec ~ram ~done_with_instruction ~no_error t ]
+    | Skip_equal_imm -> skip_imm_inv ~done_with_instruction ( ==: ) t
+    | Skip_not_equal_imm -> skip_imm_inv ~done_with_instruction ( <>: ) t
+    | Skip_equal_reg -> skip_reg_inv ~done_with_instruction ( ==: ) t
+    | Load_immediate -> combine_register_imm ~done_with_instruction ~f:(fun _ x -> x) t
+    | Add_immediate ->
+      combine_register_imm ~done_with_instruction ~f:(fun x y -> x +: y) t
+    | Register_instructions -> register_instructions ~done_with_instruction t
+    | Skip_not_equal_reg -> skip_reg_inv ~done_with_instruction ( <>: ) t
+    | Load_i_imm ->
+      proc [ assign_address ~done_with_instruction i t; pc <-- pc.value +:. 2 ]
     | Jump_imm_plus_v0 ->
-      assign_address ~mutate:(fun pc -> uresize register_zero.value 12 +: pc) pc ok t
+      assign_address
+        ~done_with_instruction
+        ~mutate:(fun pc -> uresize register_zero.value 12 +: pc)
+        pc
+        t
     | Random ->
       proc
         [ Target_register.assign
             opcode_first_register
             (opcode_immediate &: select random_state.pseudo_random 7 0)
         ; pc <-- pc.value +:. 2
-        ; ok
+        ; done_with_instruction
         ]
     | Draw ->
       proc
         [ draw_enable <--. 1
         ; draw_wiring
         ; error <--. 0
-        ; when_ draw_implementation.finished [ ok; pc <-- pc.value +:. 2 ]
+        ; when_
+            draw_implementation.finished
+            [ done_with_instruction; pc <-- pc.value +:. 2 ]
         ]
-    | Keyboard ->
-      proc
-        [ key_instructions (proc [ error <--. 0 ]) (proc [ error <--. 0; done_ <--. 1 ]) t
-        ]
+    | Keyboard -> proc [ key_instructions ~done_with_instruction t ]
     | Memory_instructions ->
       proc
         [ memory_instructions
