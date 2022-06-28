@@ -322,9 +322,30 @@ let register_instructions
     ]
 ;;
 
-let no_op ok { registers = { pc; _ }; _ } =
+let ret ~spec ~(ram : Main_memory.t) ok { registers = { pc; sp; _ }; _ } =
   let open Always in
-  proc [ pc <-- pc.value +:. 2; ok ]
+  let prev_sp = sp.value -:. 2 in
+  let step = Variable.reg ~width:2 spec in
+  let first_read = Variable.reg ~width:8 spec in
+  let next_pc = pc.value +:. 2 in
+  proc
+    [ step <-- step.value +:. 1
+    ; when_ (step.value ==:. 0) [ ram.read_address <-- prev_sp; ok ]
+    ; when_
+        (step.value ==:. 1)
+        [ ram.read_address <-- prev_sp +:. 1; first_read <-- ram.read_data ]
+    ; when_ (step.value ==:. 2) [ step <--. 0; sp <-- sp.value -:. 2; pc <-- next_pc; ok ]
+    ]
+;;
+
+let no_op ~spec ~ram ok ({ registers = { pc; _ }; opcode_immediate; _ } as t) =
+  let open Always in
+  (* Strictly the CHIP-8 doesn't have a no-op but this would 
+     be a host machine call and it is useful for testing. *)
+  proc
+    [ when_ (opcode_immediate ==:. 0) [ pc <-- pc.value +:. 2; ok ]
+    ; when_ (opcode_immediate ==:. 0xEE) [ ret ~spec ~ram ok t ]
+    ]
 ;;
 
 let assign_address ?(mutate = Fn.id) register ok { opcode_address; _ } =
@@ -464,7 +485,7 @@ let execute_instruction
   let implementation_of_opcode_first_nibble ~opcode =
     let open Always in
     match opcode with
-    | Opcode_first_nibble.No_op_cls_or_ret -> no_op ok t
+    | Opcode_first_nibble.No_op_cls_or_ret -> no_op ~spec ~ram ok t
     | Immediate_jump -> assign_address pc ok t
     | Immediate_call -> proc [ error <--. 0; call_instruction ~spec ~ram ok t ]
     | Skip_equal_imm -> skip_imm_inv ( ==: ) ok t
