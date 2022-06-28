@@ -98,7 +98,8 @@ let%expect_test "step (enabled)" =
   in
   let pc = Bits.to_int pc in
   Core.print_s [%message (pc : int)];
-  [%expect {|
+  [%expect
+    {|
     WARN: Collision bit when drawing is not implemented
     WARN: Sound is not implemented
     (pc 514) |}]
@@ -110,7 +111,8 @@ let%expect_test "step (jump) to 1024" =
   in
   let pc, error = Bits.to_int pc, Bits.to_int error in
   Core.print_s [%message (pc : int) (error : int)];
-  [%expect {|
+  [%expect
+    {|
     WARN: Collision bit when drawing is not implemented
     WARN: Sound is not implemented
     ((pc 1024) (error 0)) |}]
@@ -122,7 +124,8 @@ let%expect_test "step (jump) to 512" =
   in
   let pc, error = Bits.to_int pc, Bits.to_int error in
   Core.print_s [%message (pc : int) (error : int)];
-  [%expect {|
+  [%expect
+    {|
     WARN: Collision bit when drawing is not implemented
     WARN: Sound is not implemented
     ((pc 512) (error 0)) |}]
@@ -132,7 +135,8 @@ let%expect_test "step (jump) to 1" =
   let pc, error, _ = test ~opcodes:[ jump_to_1 ] ~stop_when:(bounded_standard_stop ()) in
   let pc, error = Bits.to_int pc, Bits.to_int error in
   Core.print_s [%message (pc : int) (error : int)];
-  [%expect {|
+  [%expect
+    {|
     WARN: Collision bit when drawing is not implemented
     WARN: Sound is not implemented
     ((pc 1) (error 0)) |}]

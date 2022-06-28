@@ -58,7 +58,52 @@ let%expect_test "Airplane" =
   test_rom
     ~print_on_exit:false
     ~print_on_cycle:false
-    ~print_at_cycles:[ rough_cycles_per_second * 2 ; rough_cycles_per_second * 2 ; rough_cycles_per_second * 2 ; rough_cycles_per_second * 2 ; rough_cycles_per_second * 2; rough_cycles_per_second * 2 ; rough_cycles_per_second * 2; rough_cycles_per_second * 2; rough_cycles_per_second * 2 ; rough_cycles_per_second * 2 ; rough_cycles_per_second * 2; rough_cycles_per_second * 2 ; rough_cycles_per_second * 2 ; rough_cycles_per_second * 2 ; rough_cycles_per_second * 2 ; rough_cycles_per_second * 2; rough_cycles_per_second * 2 ; rough_cycles_per_second * 2; rough_cycles_per_second * 2; rough_cycles_per_second * 2 ; rough_cycles_per_second * 2 ; rough_cycles_per_second * 2; rough_cycles_per_second * 2 ; rough_cycles_per_second * 2 ; rough_cycles_per_second * 2 ; rough_cycles_per_second * 2 ; rough_cycles_per_second * 2; rough_cycles_per_second * 2 ; rough_cycles_per_second * 2; rough_cycles_per_second * 2; rough_cycles_per_second * 2 ; rough_cycles_per_second * 2 ; rough_cycles_per_second * 2 ; rough_cycles_per_second * 2 ; rough_cycles_per_second * 2 ; rough_cycles_per_second * 2 ; rough_cycles_per_second * 2 ; rough_cycles_per_second * 2; rough_cycles_per_second * 2 ; rough_cycles_per_second * 2; rough_cycles_per_second * 2; rough_cycles_per_second * 2 ; rough_cycles_per_second * 2 ; rough_cycles_per_second * 2]
+    ~print_at_cycles:
+      [ rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ; rough_cycles_per_second * 2
+      ]
     ~rom_file
     ~create;
   [%expect
