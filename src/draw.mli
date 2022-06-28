@@ -24,6 +24,7 @@ module O : sig
     { finished : 'a [@bits 1]
     ; step : 'a [@bits 12]
     ; memory : 'a Main_memory.In_circuit.O.t
+    ; flag : 'a [@bits 1]
     }
   [@@deriving sexp_of, hardcaml]
 end

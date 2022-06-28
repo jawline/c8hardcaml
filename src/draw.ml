@@ -40,6 +40,7 @@ module O = struct
     { finished : 'a [@bits 1]
     ; step : 'a [@bits 12]
     ; memory : 'a Main_memory.In_circuit.O.t
+    ; flag : 'a [@bits 1]
     }
   [@@deriving sexp_of, hardcaml]
 end
@@ -53,6 +54,7 @@ let draw_side
     ~side
     ~current_i
     ~framebuffer_address
+    ~collision_accumulator
   =
   let open Always in
   let open Variable in
@@ -92,16 +94,21 @@ let draw_side
     |> Sequence.to_list
     |> proc
   in
+  (* TODO: I think this could be cleaner *)
+  let collided =
+    selected_write_data.value &: read_data <>: read_data |: collision_accumulator.value
+  in
   let write_step =
     [ write_data
     ; ram.write_enable <--. 1
     ; ram.write_address <-- framebuffer_address
     ; ram.write_data <-- selected_write_data.value
     ; state.set_next write_next_state
+    ; collision_accumulator <-- collided
     ]
     |> proc
   in
-  read_step, write_step
+  read_step, write_step, collided
 ;;
 
 let create ~spec (i : _ I.t) =
@@ -109,7 +116,6 @@ let create ~spec (i : _ I.t) =
   let open Variable in
   printf "WARN: Collision bit when drawing is not implemented\n";
   (* TODO: Collision bit *)
-  (* TODO: Test this instruction *)
   let state = State_machine.create (module Draw_state) ~enable:vdd spec in
   let x = to_main_addr i.x in
   let y = to_main_addr i.y in
@@ -118,7 +124,8 @@ let create ~spec (i : _ I.t) =
   let finished = wire ~default:(Signal.of_int ~width:1 0) in
   let ram = Main_memory.Wires.create () in
   (* Step calculates the current depth into the draw operation *)
-  let step = Variable.reg ~enable:vdd ~width:(wsz `Address) spec in
+  let step = reg ~enable:vdd ~width:(wsz `Address) spec in
+  let collision_accumulator = reg ~width:1 spec in
   let last_step = step.value ==: n in
   let framebuffer_address =
     let step_value_as_address = to_main_addr step.value in
@@ -138,7 +145,7 @@ let create ~spec (i : _ I.t) =
   (* I will be read one cycle before read_lhs so we need to write it down
      when on that side. *)
   let read_data = i.memory.read_data in
-  let read_lhs, write_lhs =
+  let read_lhs, write_lhs, _first_collide =
     draw_side
       ~read_data
       ~state
@@ -147,9 +154,10 @@ let create ~spec (i : _ I.t) =
       ~side:`Lhs
       ~current_i:current_i.value
       ~framebuffer_address
+      ~collision_accumulator
   in
   let read_lhs = proc [ current_i <-- i.memory.read_data; read_lhs ] in
-  let read_rhs, write_rhs =
+  let read_rhs, write_rhs, collided =
     draw_side
       ~read_data
       ~state
@@ -158,12 +166,19 @@ let create ~spec (i : _ I.t) =
       ~side:`Rhs
       ~current_i:current_i.value
       ~framebuffer_address:(framebuffer_address +:. 1)
+      ~collision_accumulator
   in
   (* On write_rhs we should increment the step *)
   let write_rhs = proc [ write_rhs; step <-- step.value +:. 1 ] in
   (* TODO: Collision *)
   let set_finished_and_reset =
-    proc [ state.set_next Read_i; step <--. 0; finished <--. 1; current_i <--. 0 ]
+    proc
+      [ state.set_next Read_i
+      ; step <--. 0
+      ; finished <--. 1
+      ; current_i <--. 0
+      ; collision_accumulator <--. 0
+      ]
   in
   let step_draw =
     proc
@@ -180,15 +195,18 @@ let create ~spec (i : _ I.t) =
     [ if_
         i.enable
         [ if_ last_step [ set_finished_and_reset ] [ step_draw ] ]
-        [ state.set_next Read_i; step <--. 0 ]
+        [ state.set_next Read_i ]
     ];
   { O.finished = finished.value
   ; step = step.value
   ; memory = Main_memory.Wires.to_output ram
+  ; flag = collided
   }
 ;;
 
 module Test = struct
+  (* TODO: Test this instruction better. *)
+
   let test ~cycles ~x ~y ~n ~i =
     let module Simulator = Cyclesim.With_interface (I) (O) in
     let sim = Simulator.create (create ~spec:r_sync) in
