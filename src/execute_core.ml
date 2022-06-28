@@ -377,7 +377,24 @@ let ret_instruction
     ]
 ;;
 
-let no_op
+module First_nibble_zero_opcodes = struct
+  (* Strictly the CHIP-8 doesn't have a no-op but this would 
+     be a host machine call and it is useful for testing. *)
+  type t =
+    | No_op
+    | Ret
+    | Clear_screen
+  [@@deriving variants]
+
+  let to_int t =
+    match t with
+    | No_op -> 0
+    | Ret -> 0xEE
+    | Clear_screen -> 0xE0
+  ;;
+end
+
+let first_nibble_zero_implementation
     ~spec
     ~ram
     ~no_error
@@ -386,15 +403,27 @@ let no_op
   =
   let open Always in
   print_s [%message "TODO: Clear screen (make a Memcpy module?)"];
-  (* Strictly the CHIP-8 doesn't have a no-op but this would 
-     be a host machine call and it is useful for testing. *)
-  proc
-    [ when_ (opcode_immediate ==:. 0) [ pc <-- pc.value +:. 2; done_with_instruction ]
-    ; when_
-        (opcode_immediate ==:. 0xEE)
-        [ ret_instruction ~no_error ~done_with_instruction ~spec ~ram t ]
-    ; when_ (opcode_immediate ==:. 0xE0) [ pc <-- pc.value +:. 2; done_with_instruction ]
-    ]
+  First_nibble_zero_opcodes.Variants.fold
+    ~init:[]
+    ~no_op:(fun accum _ ->
+      accum
+      @ [ when_
+            (opcode_immediate ==:. First_nibble_zero_opcodes.to_int No_op)
+            [ pc <-- pc.value +:. 2; done_with_instruction ]
+        ])
+    ~ret:(fun accum _ ->
+      accum
+      @ [ when_
+            (opcode_immediate ==:. First_nibble_zero_opcodes.to_int Ret)
+            [ ret_instruction ~no_error ~done_with_instruction ~spec ~ram t ]
+        ])
+    ~clear_screen:(fun accum _ ->
+      accum
+      @ [ when_
+            (opcode_immediate ==:. First_nibble_zero_opcodes.to_int Clear_screen)
+            [ pc <-- pc.value +:. 2; done_with_instruction ]
+        ])
+  |> proc
 ;;
 
 let assign_address ?(mutate = Fn.id) ~done_with_instruction register { opcode_address; _ }
@@ -508,7 +537,7 @@ let execute_instruction
     let open Always in
     match opcode with
     | Opcode_first_nibble.No_op_cls_or_ret ->
-      no_op ~no_error ~done_with_instruction ~spec ~ram t
+      first_nibble_zero_implementation ~no_error ~done_with_instruction ~spec ~ram t
     | Immediate_jump -> assign_address ~done_with_instruction pc t
     | Immediate_call ->
       proc [ call_instruction ~spec ~ram ~done_with_instruction ~no_error t ]

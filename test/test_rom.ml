@@ -465,7 +465,8 @@ let%expect_test "Trip 8" =
     ~create;
   [%expect.unreachable];
   return ()
-[@@expect.uncaught_exn {|
+  [@@expect.uncaught_exn
+    {|
   (* CR expect_test_collector: This test expectation appears to contain a backtrace.
      This is strongly discouraged as backtraces are fragile.
      Please change this test to not include a backtrace. *)
@@ -661,7 +662,7 @@ let%expect_test "Pong" =
       "Called from Stdlib__list.iter in file \"list.ml\", line 110, characters 12-15"
       "Called from Base__List0.iter in file \"src/list0.ml\" (inlined), line 25, characters 16-35"
       "Called from C8_test__Helper.test_rom in file \"test/helper.ml\", line 137, characters 2-985"
-      "Called from C8_test__Test_rom.(fun) in file \"test/test_rom.ml\", line 581, characters 2-261"
+      "Called from C8_test__Test_rom.(fun) in file \"test/test_rom.ml\", line 638, characters 2-261"
       "Called from Async_kernel__Deferred0.bind.(fun) in file \"src/deferred0.ml\", line 54, characters 64-69"
       "Called from Async_kernel__Job_queue.run_jobs in file \"src/job_queue.ml\", line 167, characters 6-47"
       "Caught by monitor block_on_async"))
