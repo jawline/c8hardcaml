@@ -20,6 +20,7 @@ end
 module O : sig
   type 'a t =
     { finished : 'a [@bits 1]
+    ; in_progress : 'a [@bits 1]
     ; memory : 'a Main_memory.In_circuit.O.t
     }
   [@@deriving sexp_of, hardcaml]

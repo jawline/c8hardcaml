@@ -403,6 +403,24 @@ let first_nibble_zero_implementation
   =
   let open Always in
   print_s [%message "TODO: Clear screen (make a Memcpy module?)"];
+  let enable_clear = wire_false () in
+  let clear_implementation, clear_wiring =
+    Main_memory.circuit_with_memory ram ~f:(fun ~memory ->
+        let o =
+          Memset.create
+            ~spec:r_sync
+            { Memset.I.clock
+            ; clear
+            ; enable = enable_clear.value
+            ; address =
+                Signal.of_int ~width:(wsz `Main_address) Main_memory.framebuffer_start
+            ; size = Signal.of_int ~width:(wsz `Byte) Main_memory.framebuffer_size
+            ; write_value = Signal.of_int ~width:8 0
+            ; memory
+            }
+        in
+        o, o.memory)
+  in
   First_nibble_zero_opcodes.Variants.fold
     ~init:[]
     ~no_op:(fun accum _ ->
@@ -421,7 +439,13 @@ let first_nibble_zero_implementation
       accum
       @ [ when_
             (opcode_immediate ==:. First_nibble_zero_opcodes.to_int Clear_screen)
-            [ pc <-- pc.value +:. 2; done_with_instruction ]
+            [ clear_wiring
+            ; no_error
+            ; enable_clear <--. 1
+            ; when_
+                clear_implementation.finished
+                [ pc <-- pc.value +:. 2; done_with_instruction ]
+            ]
         ])
   |> proc
 ;;
