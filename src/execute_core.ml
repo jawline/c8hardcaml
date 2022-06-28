@@ -512,7 +512,7 @@ module Opcode_first_nibble = struct
     | Draw
     | Keyboard
     | Memory_instructions
-  [@@deriving enumerate, variants]
+  [@@deriving variants]
 
   let to_int t =
     match t with
