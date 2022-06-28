@@ -13,7 +13,6 @@ let%expect_test "Cave" =
     ~create;
   [%expect
     {|
-      "TODO: Clear screen (make a Memcpy module?)"
       ⡿⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⣹
       ⡇⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⢹
       ⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸
@@ -76,7 +75,7 @@ let%expect_test "Airplane" =
       "Called from Stdlib__list.iter in file \"list.ml\", line 110, characters 12-15"
       "Called from Base__List0.iter in file \"src/list0.ml\" (inlined), line 25, characters 16-35"
       "Called from C8_test__Helper.test_rom in file \"test/helper.ml\", line 137, characters 2-985"
-      "Called from C8_test__Test_rom2.(fun) in file \"test/test_rom2.ml\", line 57, characters 2-141"
+      "Called from C8_test__Test_rom2.(fun) in file \"test/test_rom2.ml\", line 56, characters 2-141"
       "Called from Async_kernel__Deferred0.bind.(fun) in file \"src/deferred0.ml\", line 54, characters 64-69"
       "Called from Async_kernel__Job_queue.run_jobs in file \"src/job_queue.ml\", line 167, characters 6-47"
       "Caught by monitor block_on_async"))
@@ -86,7 +85,6 @@ let%expect_test "Airplane" =
 
   Trailing output
   ---------------
-  "TODO: Clear screen (make a Memcpy module?)"
   ERROR: ((core
     ((in_execute 1) (in_fetch 0) (op 1111000100011000)
      (working_op 1111000100100000)
@@ -132,7 +130,6 @@ let%expect_test "Sirpinski" =
     ~create;
   [%expect
     {|
-    "TODO: Clear screen (make a Memcpy module?)"
     ⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢉⡹⢏⡉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹
     ⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠁⠈⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸
     ⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸
@@ -191,7 +188,6 @@ let%expect_test "Rocket Launcher" =
     ~create;
   [%expect
     {|
-    "TODO: Clear screen (make a Memcpy module?)"
     ⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹
     ⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸
     ⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸

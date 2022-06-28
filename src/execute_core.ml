@@ -402,7 +402,6 @@ let first_nibble_zero_implementation
     ({ registers = { pc; _ }; opcode_immediate; _ } as t)
   =
   let open Always in
-  print_s [%message "TODO: Clear screen (make a Memcpy module?)"];
   let enable_clear = wire_false () in
   let clear_implementation, clear_wiring =
     Main_memory.circuit_with_memory ram ~f:(fun ~memory ->
@@ -421,32 +420,24 @@ let first_nibble_zero_implementation
         in
         o, o.memory)
   in
+  let impl t v accum _ =
+    accum @ [ when_ (opcode_immediate ==:. First_nibble_zero_opcodes.to_int t) v ]
+  in
   First_nibble_zero_opcodes.Variants.fold
     ~init:[]
-    ~no_op:(fun accum _ ->
-      accum
-      @ [ when_
-            (opcode_immediate ==:. First_nibble_zero_opcodes.to_int No_op)
-            [ pc <-- pc.value +:. 2; done_with_instruction ]
-        ])
-    ~ret:(fun accum _ ->
-      accum
-      @ [ when_
-            (opcode_immediate ==:. First_nibble_zero_opcodes.to_int Ret)
-            [ ret_instruction ~no_error ~done_with_instruction ~spec ~ram t ]
-        ])
-    ~clear_screen:(fun accum _ ->
-      accum
-      @ [ when_
-            (opcode_immediate ==:. First_nibble_zero_opcodes.to_int Clear_screen)
-            [ clear_wiring
-            ; no_error
-            ; enable_clear <--. 1
-            ; when_
-                clear_implementation.finished
-                [ pc <-- pc.value +:. 2; done_with_instruction ]
-            ]
-        ])
+    ~no_op:(impl No_op [ pc <-- pc.value +:. 2; done_with_instruction ])
+    ~ret:(impl Ret [ ret_instruction ~no_error ~done_with_instruction ~spec ~ram t ])
+    ~clear_screen:
+      ((* TODO: Clear screen tests *)
+       impl
+         Clear_screen
+         [ clear_wiring
+         ; no_error
+         ; enable_clear <--. 1
+         ; when_
+             clear_implementation.finished
+             [ pc <-- pc.value +:. 2; done_with_instruction ]
+         ])
   |> proc
 ;;
 
