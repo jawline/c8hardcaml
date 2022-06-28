@@ -13,7 +13,6 @@ let%expect_test "Cave" =
     ~create;
   [%expect
     {|
-      WARN: Collision bit when drawing is not implemented
       WARN: Sound is not implemented
       ⡿⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⡹⠿⢏⣉⣹
       ⡇⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⠁⠀⠈⠉⢹
@@ -108,7 +107,6 @@ let%expect_test "Airplane" =
     ~create;
   [%expect
     {|
-    WARN: Collision bit when drawing is not implemented
     WARN: Sound is not implemented
     ⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹
     ⡇⠀⠀⠀⢰⣆⣀⣀⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸
@@ -914,7 +912,6 @@ let%expect_test "Sirpinski" =
     ~create;
   [%expect
     {|
-    WARN: Collision bit when drawing is not implemented
     WARN: Sound is not implemented
     ⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢉⡹⢏⡉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹
     ⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠁⠈⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸
@@ -974,7 +971,6 @@ let%expect_test "Rocket Launcher" =
     ~create;
   [%expect
     {|
-    WARN: Collision bit when drawing is not implemented
     WARN: Sound is not implemented
     ⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹
     ⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸

@@ -22,7 +22,6 @@ let%expect_test "Particle" =
     ~create;
   [%expect
     {|
-      WARN: Collision bit when drawing is not implemented
       WARN: Sound is not implemented
       ⡿⠿⠿⠿⠏⢹⣿⡿⠿⢿⣏⡉⢉⣹⡿⠿⢿⣏⡉⢹⣿⡿⠿⢿⣏⡉⠹⠿⢿⣿⡿⠿⠏⢹⣿⡏⢉⣹⡿⠿⠿⠏⢹⣿⡏⠉⠉⠉⢹⣿⡿⠿⠿⠏⢉⣹⡿⠿⠿⠏⠹⠿⠿⠿⢿
       ⡇⠰⠶⠶⠆⢸⣿⡷⠶⠾⠏⠁⢸⣿⡷⠶⢾⣿⡇⢸⣿⡷⠶⢾⣏⡁⠀⠀⢸⣿⡇⠀⠀⢸⣿⡇⢸⣿⡇⠀⠀⠀⢸⣿⡇⠀⠀⠀⢸⣿⡷⠶⠆⠀⠈⠹⠷⢶⣆⡀⠰⠶⠶⠆⢸
@@ -180,7 +179,6 @@ let%expect_test "Maze" =
     ~create;
   [%expect
     {|
-    WARN: Collision bit when drawing is not implemented
     WARN: Sound is not implemented
     ⡏⢉⡹⠏⠉⢉⡹⠏⠹⢏⡉⠉⠹⢏⡉⠉⠹⢏⡉⠉⠉⢉⡹⠏⠉⢉⡹⠏⠹⢏⡉⠉⠹⢏⡉⠉⠉⢉⡹⠏⠉⢉⡹⠏⠹⢏⡉⠉⠹⢏⡉⠉⠉⢉⡹⠏⠹⢏⡉⠉⠹⢏⡉⠉⢹
     ⡷⠎⠁⢀⡰⠎⠁⢀⡀⠈⠱⢆⡀⠈⠱⢆⡀⠈⠱⢆⡰⠎⠁⢀⡰⠎⠁⢀⡀⠈⠱⢆⡀⠈⠱⢆⡰⠎⠁⢀⡰⠎⠁⢀⡀⠈⠱⢆⡀⠈⠱⢆⡰⠎⠁⢀⡀⠈⠱⢆⡀⠈⠱⢆⣸
@@ -225,7 +223,6 @@ let%expect_test "Blinky" =
     ~create;
   [%expect
     {|
-      WARN: Collision bit when drawing is not implemented
       WARN: Sound is not implemented
       ⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹
       ⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸
@@ -468,7 +465,6 @@ let%expect_test "Trip 8" =
     ~create;
   [%expect
     {|
-    WARN: Collision bit when drawing is not implemented
     WARN: Sound is not implemented
     ⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹
     ⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸
@@ -703,7 +699,6 @@ let%expect_test "Pong" =
     ~create;
   [%expect
     {|
-    WARN: Collision bit when drawing is not implemented
     WARN: Sound is not implemented
     ⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠹⠏⠉⠉⢉⡹⠏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠹⠏⠉⠉⢉⡹⠏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹
     ⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢰⡆⠀⢰⡆⠀⠈⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢰⡆⠀⢰⡆⠀⠈⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸

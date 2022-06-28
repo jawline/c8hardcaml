@@ -100,7 +100,6 @@ let%expect_test "step (enabled)" =
   Core.print_s [%message (pc : int)];
   [%expect
     {|
-    WARN: Collision bit when drawing is not implemented
     WARN: Sound is not implemented
     (pc 514) |}]
 ;;
@@ -113,7 +112,6 @@ let%expect_test "step (jump) to 1024" =
   Core.print_s [%message (pc : int) (error : int)];
   [%expect
     {|
-    WARN: Collision bit when drawing is not implemented
     WARN: Sound is not implemented
     ((pc 1024) (error 0)) |}]
 ;;
@@ -126,7 +124,6 @@ let%expect_test "step (jump) to 512" =
   Core.print_s [%message (pc : int) (error : int)];
   [%expect
     {|
-    WARN: Collision bit when drawing is not implemented
     WARN: Sound is not implemented
     ((pc 512) (error 0)) |}]
 ;;
@@ -137,7 +134,6 @@ let%expect_test "step (jump) to 1" =
   Core.print_s [%message (pc : int) (error : int)];
   [%expect
     {|
-    WARN: Collision bit when drawing is not implemented
     WARN: Sound is not implemented
     ((pc 1) (error 0)) |}]
 ;;
@@ -151,7 +147,6 @@ let%expect_test "assign V0 to 1" =
   print_registers ~registers;
   [%expect
     {|
-      WARN: Collision bit when drawing is not implemented
       WARN: Sound is not implemented
       ((pc 514) (error 0))
       (I:000000000000 V0:00000001 V1:00000000 V2:00000000 V3:00000000 V4:00000000
@@ -168,7 +163,6 @@ let%expect_test "assign V1 to 2" =
   print_registers ~registers;
   [%expect
     {|
-      WARN: Collision bit when drawing is not implemented
       WARN: Sound is not implemented
       ((pc 514) (error 0))
       (I:000000000000 V0:00000000 V1:00000010 V2:00000000 V3:00000000 V4:00000000
@@ -185,7 +179,6 @@ let%expect_test "assign V2 to 3" =
   print_registers ~registers;
   [%expect
     {|
-      WARN: Collision bit when drawing is not implemented
       WARN: Sound is not implemented
       ((pc 514) (error 0))
       (I:000000000000 V0:00000000 V1:00000000 V2:00000011 V3:00000000 V4:00000000
@@ -202,7 +195,6 @@ let%expect_test "assign V6 to max_int (255)" =
   print_registers ~registers;
   [%expect
     {|
-      WARN: Collision bit when drawing is not implemented
       WARN: Sound is not implemented
       ((pc 514) (error 0))
       (I:000000000000 V0:00000000 V1:00000000 V2:00000000 V3:00000000 V4:00000000
@@ -221,7 +213,6 @@ let%expect_test "test skip if equal on equal value" =
   print_registers ~registers;
   [%expect
     {|
-      WARN: Collision bit when drawing is not implemented
       WARN: Sound is not implemented
       ((pc 518) (error 0))
       (I:000000000000 V0:00000101 V1:00000000 V2:00000000 V3:00000000 V4:00000000
@@ -243,7 +234,6 @@ let%expect_test "test skip if equal on non-equal value" =
   print_registers ~registers;
   [%expect
     {|
-      WARN: Collision bit when drawing is not implemented
       WARN: Sound is not implemented
       ((pc 516) (error 0))
       (I:000000000000 V0:00000100 V1:00000000 V2:00000000 V3:00000000 V4:00000000
@@ -265,7 +255,6 @@ let%expect_test "test skip if not equal on equal value" =
   print_registers ~registers;
   [%expect
     {|
-      WARN: Collision bit when drawing is not implemented
       WARN: Sound is not implemented
       ((pc 516) (error 0))
       (I:000000000000 V0:00000101 V1:00000000 V2:00000000 V3:00000000 V4:00000000
@@ -287,7 +276,6 @@ let%expect_test "test skip if v0 = v1 when v0 = v1" =
   print_registers ~registers;
   [%expect
     {|
-      WARN: Collision bit when drawing is not implemented
       WARN: Sound is not implemented
       ((pc 520) (error 0))
       (I:000000000000 V0:00000101 V1:00000101 V2:00000000 V3:00000000 V4:00000000
@@ -309,7 +297,6 @@ let%expect_test "test skip if v0 = v1 when v0 <> v1" =
   print_registers ~registers;
   [%expect
     {|
-      WARN: Collision bit when drawing is not implemented
       WARN: Sound is not implemented
       ((pc 518) (error 0))
       (I:000000000000 V0:00000100 V1:00000101 V2:00000000 V3:00000000 V4:00000000
@@ -326,7 +313,6 @@ let%expect_test "add 5 to v0 twices" =
   print_registers ~registers;
   [%expect
     {|
-      WARN: Collision bit when drawing is not implemented
       WARN: Sound is not implemented
       ((pc 516) (error 0))
       (I:000000000000 V0:00001010 V1:00000000 V2:00000000 V3:00000000 V4:00000000
@@ -343,7 +329,6 @@ let%expect_test "assign 4 to v0 then add 5 to v0" =
   print_registers ~registers;
   [%expect
     {|
-      WARN: Collision bit when drawing is not implemented
       WARN: Sound is not implemented
       ((pc 516) (error 0))
       (I:000000000000 V0:00001001 V1:00000000 V2:00000000 V3:00000000 V4:00000000
@@ -360,7 +345,6 @@ let%expect_test "assign 2 to v1 then assign v0 to v1" =
   print_registers ~registers;
   [%expect
     {|
-      WARN: Collision bit when drawing is not implemented
       WARN: Sound is not implemented
       ((pc 516) (error 0))
       (I:000000000000 V0:00000010 V1:00000010 V2:00000000 V3:00000000 V4:00000000
@@ -379,7 +363,6 @@ let%expect_test "assign 2 to v1 then assign 1 to v0 then or them" =
   print_registers ~registers;
   [%expect
     {|
-      WARN: Collision bit when drawing is not implemented
       WARN: Sound is not implemented
       ((pc 518) (error 0))
       (I:000000000000 V0:00000011 V1:00000001 V2:00000000 V3:00000000 V4:00000000
@@ -398,7 +381,6 @@ let%expect_test "assign 2 to v1 then assign 3 to v0 then and them" =
   print_registers ~registers;
   [%expect
     {|
-      WARN: Collision bit when drawing is not implemented
       WARN: Sound is not implemented
       ((pc 518) (error 0))
       (I:000000000000 V0:00000001 V1:00000001 V2:00000000 V3:00000000 V4:00000000
@@ -417,7 +399,6 @@ let%expect_test "assign 1 to v1 then assign 3 to v0 then xor them" =
   print_registers ~registers;
   [%expect
     {|
-      WARN: Collision bit when drawing is not implemented
       WARN: Sound is not implemented
       ((pc 518) (error 0))
       (I:000000000000 V0:00000010 V1:00000001 V2:00000000 V3:00000000 V4:00000000
@@ -434,7 +415,6 @@ let%expect_test "assign 1 to v1 then increment i by v1" =
   print_registers ~registers;
   [%expect
     {|
-      WARN: Collision bit when drawing is not implemented
       WARN: Sound is not implemented
       ((pc 516) (error 0))
       (I:000000000001 V0:00000000 V1:00000001 V2:00000000 V3:00000000 V4:00000000
@@ -451,7 +431,6 @@ let%expect_test "test random state" =
   print_registers ~registers;
   [%expect
     {|
-      WARN: Collision bit when drawing is not implemented
       WARN: Sound is not implemented
       ((pc 516) (error 0))
       (I:000000000000 V0:00000000 V1:00000000 V2:00000000 V3:00000000 V4:00000000
@@ -478,7 +457,6 @@ let%expect_test "test dump all registers" =
   print_registers ~registers;
   [%expect
     {|
-      WARN: Collision bit when drawing is not implemented
       WARN: Sound is not implemented
       ((pc 524) (error 0)
        (range (1 2 3 4 5 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))
@@ -507,7 +485,6 @@ let%expect_test "test dump the first three registers" =
   print_registers ~registers;
   [%expect
     {|
-      WARN: Collision bit when drawing is not implemented
       WARN: Sound is not implemented
       ((pc 526) (error 0)
        (range (0 0 1 2 3 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))
@@ -541,7 +518,6 @@ let%expect_test "test dump and then load registers" =
   print_registers ~registers;
   [%expect
     {|
-      WARN: Collision bit when drawing is not implemented
       WARN: Sound is not implemented
       ((pc 536) (error 0)
        (range (1 2 3 4 5 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))
@@ -562,7 +538,6 @@ let%expect_test "test sprite load" =
   print_registers ~registers;
   [%expect
     {|
-      WARN: Collision bit when drawing is not implemented
       WARN: Sound is not implemented
       ((pc 516) (error 0)
        (range (0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))
