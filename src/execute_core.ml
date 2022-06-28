@@ -512,7 +512,27 @@ module Opcode_first_nibble = struct
     | Draw
     | Keyboard
     | Memory_instructions
-  [@@deriving enumerate]
+  [@@deriving enumerate, variants]
+
+  let to_int t =
+    match t with
+    | No_op_cls_or_ret -> 0
+    | Immediate_jump -> 1
+    | Immediate_call -> 2
+    | Skip_equal_imm -> 3
+    | Skip_not_equal_imm -> 4
+    | Skip_equal_reg -> 5
+    | Load_immediate -> 6
+    | Add_immediate -> 7
+    | Register_instructions -> 8
+    | Skip_not_equal_reg -> 9
+    | Load_i_imm -> 10
+    | Jump_imm_plus_v0 -> 11
+    | Random -> 12
+    | Draw -> 13
+    | Keyboard -> 14
+    | Memory_instructions -> 15
+  ;;
 end
 
 let execute_instruction
@@ -550,72 +570,91 @@ let execute_instruction
   in
   let no_error = proc [ error <--. 0 ] in
   let done_with_instruction = proc [ no_error; done_ <--. 1 ] in
-  let implementation_of_opcode_first_nibble ~opcode =
-    let open Always in
-    match opcode with
-    | Opcode_first_nibble.No_op_cls_or_ret ->
-      first_nibble_zero_implementation ~no_error ~done_with_instruction ~spec ~ram t
-    | Immediate_jump -> assign_address ~done_with_instruction pc t
-    | Immediate_call ->
-      proc [ call_instruction ~spec ~ram ~done_with_instruction ~no_error t ]
-    | Skip_equal_imm -> skip_imm_inv ~done_with_instruction ( ==: ) t
-    | Skip_not_equal_imm -> skip_imm_inv ~done_with_instruction ( <>: ) t
-    | Skip_equal_reg -> skip_reg_inv ~done_with_instruction ( ==: ) t
-    | Load_immediate -> combine_register_imm ~done_with_instruction ~f:(fun _ x -> x) t
-    | Add_immediate ->
-      combine_register_imm ~done_with_instruction ~f:(fun x y -> x +: y) t
-    | Register_instructions -> register_instructions ~done_with_instruction t
-    | Skip_not_equal_reg -> skip_reg_inv ~done_with_instruction ( <>: ) t
-    | Load_i_imm ->
-      proc [ assign_address ~done_with_instruction i t; pc <-- pc.value +:. 2 ]
-    | Jump_imm_plus_v0 ->
-      assign_address
-        ~done_with_instruction
-        ~mutate:(fun pc -> uresize register_zero.value 12 +: pc)
-        pc
-        t
-    | Random ->
-      proc
-        [ Target_register.assign
-            opcode_first_register
-            (opcode_immediate &: select random_state.pseudo_random 7 0)
-        ; pc <-- pc.value +:. 2
-        ; done_with_instruction
-        ]
-    | Draw ->
-      proc
-        [ draw_enable <--. 1
-        ; draw_wiring
-        ; error <--. 0
-        ; when_
-            draw_implementation.finished
-            [ done_with_instruction; pc <-- pc.value +:. 2 ]
-        ]
-    | Keyboard -> proc [ key_instructions ~done_with_instruction t ]
-    | Memory_instructions ->
-      proc
-        [ memory_instructions
-            ~clock
-            ~clear
-            ~spec
-            ~ram
-            (proc [ error <--. 0 ])
-            (proc [ error <--. 0; done_ <--. 1 ])
-            t
-        ]
+  let impl t v accum _ =
+    accum @ [ when_ (primary_op ==:. Opcode_first_nibble.to_int t) [ v ] ]
   in
   let opcode_implementations =
-    List.mapi
-      ~f:(fun opcode_index opcode ->
-        proc
-          [ when_
-              (primary_op ==:. opcode_index)
-              [ implementation_of_opcode_first_nibble ~opcode ]
-          ])
-      Opcode_first_nibble.all
+    Opcode_first_nibble.Variants.fold
+      ~init:[]
+      ~no_op_cls_or_ret:
+        (impl
+           No_op_cls_or_ret
+           (first_nibble_zero_implementation
+              ~no_error
+              ~done_with_instruction
+              ~spec
+              ~ram
+              t))
+      ~immediate_jump:(impl Immediate_jump (assign_address ~done_with_instruction pc t))
+      ~immediate_call:
+        (impl
+           Immediate_call
+           (call_instruction ~spec ~ram ~done_with_instruction ~no_error t))
+      ~skip_equal_imm:
+        (impl Skip_equal_imm (skip_imm_inv ~done_with_instruction ( ==: ) t))
+      ~skip_not_equal_imm:
+        (impl Skip_not_equal_imm (skip_imm_inv ~done_with_instruction ( <>: ) t))
+      ~skip_equal_reg:
+        (impl Skip_equal_reg (skip_reg_inv ~done_with_instruction ( ==: ) t))
+      ~load_immediate:
+        (impl
+           Load_immediate
+           (combine_register_imm ~done_with_instruction ~f:(fun _ x -> x) t))
+      ~add_immediate:
+        (impl
+           Add_immediate
+           (combine_register_imm ~done_with_instruction ~f:(fun x y -> x +: y) t))
+      ~register_instructions:
+        (impl Register_instructions (register_instructions ~done_with_instruction t))
+      ~skip_not_equal_reg:
+        (impl Skip_not_equal_reg (skip_reg_inv ~done_with_instruction ( <>: ) t))
+      ~load_i_imm:
+        (impl
+           Load_i_imm
+           (proc [ assign_address ~done_with_instruction i t; pc <-- pc.value +:. 2 ]))
+      ~jump_imm_plus_v0:
+        (impl
+           Jump_imm_plus_v0
+           (assign_address
+              ~done_with_instruction
+              ~mutate:(fun pc -> uresize register_zero.value 12 +: pc)
+              pc
+              t))
+      ~random:
+        (impl
+           Random
+           (proc
+              [ Target_register.assign
+                  opcode_first_register
+                  (opcode_immediate &: select random_state.pseudo_random 7 0)
+              ; pc <-- pc.value +:. 2
+              ; done_with_instruction
+              ]))
+      ~draw:
+        (impl
+           Draw
+           (proc
+              [ draw_enable <--. 1
+              ; draw_wiring
+              ; error <--. 0
+              ; when_
+                  draw_implementation.finished
+                  [ done_with_instruction; pc <-- pc.value +:. 2 ]
+              ]))
+      ~keyboard:(impl Keyboard (key_instructions ~done_with_instruction t))
+      ~memory_instructions:
+        (impl
+           Memory_instructions
+           (memory_instructions
+              ~clock
+              ~clear
+              ~spec
+              ~ram
+              (proc [ error <--. 0 ])
+              (proc [ error <--. 0; done_ <--. 1 ])
+              t))
     |> proc
   in
-  (* TODO: Replace hardcoded constants with names *)
   proc
     [ (* This error state will become 0 if any op is matched *)
       error <--. 1
