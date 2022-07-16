@@ -10,7 +10,7 @@ struct Cli {
     path: std::path::PathBuf,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 enum Token {
     ClearScreen,
     SetDigit {
@@ -21,6 +21,10 @@ enum Token {
         register_x: usize,
         register_y: usize,
         height: usize,
+    },
+    LoadImmediate {
+        register: usize,
+        immediate: u8,
     },
 }
 
@@ -42,6 +46,10 @@ impl Token {
                 height: _,
             } => format!("draw"),
             Token::SetDigit { digit: _ } => format!("set-digit"),
+            Token::LoadImmediate {
+                register: _,
+                immediate: _,
+            } => format!("ldi"),
         }
     }
 
@@ -59,6 +67,10 @@ impl Token {
                     | (register_y as u16) << 4
                     | (height as u16)
             }
+            Token::LoadImmediate {
+                register,
+                immediate,
+            } => 0b0110_0000_0000_0000 | (register as u16) << 8 | (immediate as u16),
         }
     }
 
@@ -67,7 +79,7 @@ impl Token {
 
         let parts = line_regex
             .captures(line.trim())
-            .ok_or(err("does not look like a command"))?;
+            .ok_or(err(&format!("{line} does not look like a command")))?;
 
         let command = parts.get(1).ok_or(err("no command part"))?.as_str();
         let arguments: Vec<&str> = parts
@@ -75,9 +87,8 @@ impl Token {
             .ok_or(err("no arguments part)"))?
             .as_str()
             .split(",")
+            .map(|x| x.trim())
             .collect();
-
-        println!("{:?}", command);
 
         if command == Token::ClearScreen.name() {
             Ok(Token::ClearScreen)
@@ -96,6 +107,25 @@ impl Token {
             } else {
                 Err(boxed_err(&format!("{} is not in the range 0-9", digit)))
             }
+        } else if command
+            == (Token::LoadImmediate {
+                register: 0,
+                immediate: 0,
+            })
+            .name()
+        {
+            let register = arguments
+                .get(0)
+                .ok_or(err("register x invalid"))?
+                .parse::<usize>()?;
+            let immediate = arguments
+                .get(1)
+                .ok_or(err("register y invalid"))?
+                .parse::<u8>()?;
+            Ok(Token::LoadImmediate {
+                register,
+                immediate,
+            })
         } else if command
             == (Token::Draw {
                 register_x: 0,
@@ -130,14 +160,31 @@ impl Token {
     }
 }
 
+fn print_ocaml_formatted_byte_list(tokens: &[Token]) {
+    let mut first = true;
+    print!("[ ");
+    for token in tokens.iter().map(|x| x.to_u16().to_be_bytes()).flatten() {
+        if !first {
+            print!(" | ");
+        }
+        print!("0x{:02X?}", token);
+        first = false;
+    }
+    print!(" ]\n");
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Cli::parse();
     let contents: String = fs::read_to_string(args.path)?.parse()?;
 
-    for line in contents.lines() {
-        let next_token = Token::of_string(line)?;
-        println!("{:#02x?}", next_token.to_u16().to_be_bytes());
-    }
+    let tokens: Result<Vec<Token>, Box<dyn Error>> = contents
+        .lines()
+        .map(|x| x.trim())
+        .filter(|x| x.len() > 0)
+        .map(|line| Token::of_string(line))
+        .collect();
+    let tokens = tokens?;
 
+    print_ocaml_formatted_byte_list(&tokens);
     Ok(())
 }
