@@ -33,6 +33,7 @@ fn boxed_err(s: &str) -> Box<dyn Error> {
 }
 
 impl Token {
+
     pub fn name(&self) -> String {
         match self {
             Token::ClearScreen => format!("cls"),
@@ -42,6 +43,17 @@ impl Token {
                 height: _,
             } => format!("draw"),
             Token::SetDigit { digit: _ } => format!("set-digit"),
+        }
+    }
+
+    pub fn to_u16(self) -> u16 {
+        match self {
+            Token::ClearScreen => 0b00000000_11100000,
+            Token::SetDigit {
+                digit
+            } => 0b1111_0000_00101001 | ((digit as u16) << 8),
+            Token::Draw { register_x , register_y , height } =>
+               0b1101_0000_0000_0000 | (register_x as u16) << 8 | (register_y as u16) << 4 | (height as u16),
         }
     }
 
@@ -118,8 +130,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let contents: String = fs::read_to_string(args.path)?.parse()?;
 
     for line in contents.lines() {
-        let next_token = Token::of_string(line);
-        println!("{:?}", next_token);
+        let next_token = Token::of_string(line)?;
+        println!("{:#02x?}", next_token.to_u16().to_be_bytes());
     }
 
     Ok(())
