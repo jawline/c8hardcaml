@@ -127,12 +127,12 @@ let assign_keys_randomly ~rand =
   List.iter ~f:(fun key -> key := Bits.of_int ~width:1 (Random.State.int rand 1))
 ;;
 
-let test_rom
+let test_bytes
   ?(print_on_cycle = false)
   ~run_for_cycles
   ~print_at_interval
-  ~rom_file
   ~create
+  ~rom
   ()
   =
   let module Simulator = Cyclesim.With_interface (I) (O) in
@@ -143,7 +143,7 @@ let test_rom
   (* Write font data to main memory *)
   sim_program_machine_rom sim inputs;
   (* Write the test rom to main memory *)
-  sim_program_rom sim inputs ~rom:(String.to_list rom_file |> List.map ~f:Char.to_int);
+  sim_program_rom sim inputs ~rom;
   set_keys_unpressed inputs.keys.state;
   Sequence.range 0 run_for_cycles
   |> Sequence.iter ~f:(fun cycle ->
@@ -158,4 +158,16 @@ let test_rom
          sim_cycle_not_programming sim inputs outputs ~print:true;
          printf "%s" (frame_buffer_as_string sim inputs outputs);
          raise_s [%message "Error in ROM"]))
+;;
+
+let test_rom
+  ?(print_on_cycle = false)
+  ~run_for_cycles
+  ~print_at_interval
+  ~rom_file
+  ~create
+  ()
+  =
+  let rom = String.to_list rom_file |> List.map ~f:Char.to_int in
+  test_bytes ~print_on_cycle ~run_for_cycles ~print_at_interval ~rom ~create ()
 ;;

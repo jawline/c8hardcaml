@@ -26,6 +26,10 @@ enum Token {
         register: usize,
         immediate: u8,
     },
+    AddImmediate {
+        register: usize,
+        immediate: u8,
+    },
 }
 
 fn err(s: &str) -> io::Error {
@@ -50,6 +54,10 @@ impl Token {
                 register: _,
                 immediate: _,
             } => format!("ldi"),
+            Token::AddImmediate {
+                register: _,
+                immediate: _,
+            } => format!("addi"),
         }
     }
 
@@ -71,6 +79,10 @@ impl Token {
                 register,
                 immediate,
             } => 0b0110_0000_0000_0000 | (register as u16) << 8 | (immediate as u16),
+            Token::AddImmediate {
+                register,
+                immediate,
+            } => 0b0111_0000_0000_0000 | (register as u16) << 8 | (immediate as u16),
         }
     }
 
@@ -127,6 +139,25 @@ impl Token {
                 immediate,
             })
         } else if command
+            == (Token::AddImmediate {
+                register: 0,
+                immediate: 0,
+            })
+            .name()
+        {
+            let register = arguments
+                .get(0)
+                .ok_or(err("register x invalid"))?
+                .parse::<usize>()?;
+            let immediate = arguments
+                .get(1)
+                .ok_or(err("register y invalid"))?
+                .parse::<u8>()?;
+            Ok(Token::AddImmediate {
+                register,
+                immediate,
+            })
+        } else if command
             == (Token::Draw {
                 register_x: 0,
                 register_y: 0,
@@ -165,7 +196,7 @@ fn print_ocaml_formatted_byte_list(tokens: &[Token]) {
     print!("[ ");
     for token in tokens.iter().map(|x| x.to_u16().to_be_bytes()).flatten() {
         if !first {
-            print!(" | ");
+            print!(" ; ");
         }
         print!("0x{:02X?}", token);
         first = false;
