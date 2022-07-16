@@ -123,7 +123,7 @@ let create ~spec (i : _ I.t) =
   let ram = Main_memory.Wires.create () in
   (* Step calculates the current depth into the draw operation *)
   let step = reg ~enable:vdd ~width:(wsz `Address) spec in
-  let collision_accumulator = reg ~width:1 spec in
+  let collision_accumulator = reg ~enable:vdd ~width:1 spec in
   let last_step = step.value ==: n in
   let framebuffer_address =
     let step_value_as_address = to_main_addr step.value in
