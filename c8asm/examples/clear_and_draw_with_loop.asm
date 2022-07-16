@@ -1,8 +1,10 @@
 cls
 
-ldi 0, 0
+ldi 0, 2
 ldi 1, 0
 ldi 2, 0
+
+jmp loop
 
 next_row:
   ldi 0, 2

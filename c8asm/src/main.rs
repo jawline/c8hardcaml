@@ -6,7 +6,7 @@ use std::fs;
 use std::io;
 
 /// Programs don't start at zero so we offset addresses by this value.
-const ADDRESS_OFFSET: usize = 0x200;
+const ADDRESS_OFFSET: u16 = 0x200;
 
 fn err(s: &str) -> io::Error {
     io::Error::new(io::ErrorKind::Other, s.to_string())
@@ -85,8 +85,25 @@ impl Token {
         }
     }
 
+    fn resolve_address(
+        labels: Option<&HashMap<String, usize>>,
+        label: &str,
+    ) -> Result<u16, Box<dyn Error>> {
+        Ok(match labels {
+            Some(labels) => labels
+                .get(label)
+                .ok_or(err(&format!("{label} is not a valid label")))?
+                .clone() as u16,
+            None => {
+                // If labels is none then we are running the first pass so resolve all addresses to zero.
+
+                0
+            }
+        })
+    }
+
     // TODO: By not taking &self we copy any labels for no reason.
-    pub fn to_u16(self, labels: &HashMap<String, usize>) -> Result<u16, Box<dyn Error>> {
+    pub fn to_u16(self, labels: Option<&HashMap<String, usize>>) -> Result<u16, Box<dyn Error>> {
         Ok(match self {
             Token::ClearScreen => 0b00000000_11100000,
             Token::SetDigit { digit } => 0b1111_0000_00101001 | ((digit as u16) << 8),
@@ -109,9 +126,7 @@ impl Token {
                 immediate,
             } => 0b0111_0000_0000_0000 | (register as u16) << 8 | (immediate as u16),
             Token::JumpImmediate { label } => {
-                let label_address = labels
-                    .get(&label)
-                    .ok_or(err(&format!("{label} is not a valid label")))?;
+                let label_address = Self::resolve_address(labels, &label)?;
                 0b0001_0000_0000_0000 | ((label_address + ADDRESS_OFFSET) as u16)
             }
             Token::CmpRegisterImmediateEqual {
@@ -323,24 +338,45 @@ impl Statements {
         Ok(Self { stmts: statements? })
     }
 
+    fn emit(
+        &self,
+        first_pass: bool,
+        output_bytes: &mut Vec<u8>,
+        labels: &mut HashMap<String, usize>,
+    ) -> Result<(), Box<dyn Error>> {
+        for statement in &self.stmts {
+            match statement {
+                Statement::Token(token) => {
+                    let token_labels: Option<&HashMap<String, usize>> =
+                        if first_pass { None } else { Some(labels) };
+                    for byte in token.clone().to_u16(token_labels)?.clone().to_be_bytes() {
+                        output_bytes.push(byte);
+                    }
+                }
+                Statement::Label(label) => {
+                    if first_pass {
+                        labels.insert(label.to_string(), output_bytes.len());
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// We implement a 2 pass compiler, the one for sizing labels and the second for
+    /// emitting the real code.
     pub fn to_bytes(self) -> Result<Vec<u8>, Box<dyn Error>> {
         println!("{:?}", &self.stmts);
 
         let mut output_bytes = Vec::new();
         let mut labels = HashMap::new();
 
-        for statement in self.stmts {
-            match statement {
-                Statement::Token(token) => {
-                    for byte in token.to_u16(&labels)?.clone().to_be_bytes() {
-                        output_bytes.push(byte);
-                    }
-                }
-                Statement::Label(label) => {
-                    labels.insert(label.to_string(), output_bytes.len());
-                }
-            }
-        }
+        self.emit(true, &mut output_bytes, &mut labels)?;
+
+        println!("State after first pass: {:?} {:?}", output_bytes, labels);
+
+        output_bytes.clear();
+        self.emit(false, &mut output_bytes, &mut labels)?;
 
         Ok(output_bytes)
     }
