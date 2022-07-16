@@ -550,6 +550,7 @@ let execute_instruction
    ; opcode_final_nibble
    ; opcode_immediate
    ; register_zero
+   ; flag_register
    ; _
    } as t)
   =
@@ -639,7 +640,10 @@ let execute_instruction
               ; error <--. 0
               ; when_
                   draw_implementation.finished
-                  [ done_with_instruction; pc <-- pc.value +:. 2 ]
+                  [ done_with_instruction
+                  ; flag_register <-- to_byte draw_implementation.flag
+                  ; pc <-- pc.value +:. 2
+                  ]
               ]))
       ~keyboard:(impl Keyboard (key_instructions ~done_with_instruction t))
       ~memory_instructions:

@@ -96,7 +96,9 @@ let draw_side
   in
   (* TODO: I think this could be cleaner *)
   let collided =
-    selected_write_data.value &: read_data <>: read_data |: collision_accumulator.value
+    (* Collision is defined as any bit that goes from on to off *)
+    let collided_on_this_pixel = selected_write_data.value &: read_data <>: read_data in
+    collided_on_this_pixel |: collision_accumulator.value
   in
   let write_step =
     [ write_data
