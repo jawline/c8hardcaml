@@ -47,14 +47,14 @@ end
 
 (** Because writes can be unaligned we need to write to either side of two bytes. *)
 let draw_side
-    ~(state : Draw_state.t Always.State_machine.t)
-    ~(ram : Main_memory.Wires.t)
-    ~read_data
-    ~x
-    ~side
-    ~current_i
-    ~framebuffer_address
-    ~collision_accumulator
+  ~(state : Draw_state.t Always.State_machine.t)
+  ~(ram : Main_memory.Wires.t)
+  ~read_data
+  ~x
+  ~side
+  ~current_i
+  ~framebuffer_address
+  ~collision_accumulator
   =
   let open Always in
   let open Variable in
@@ -86,11 +86,11 @@ let draw_side
   let write_data =
     Sequence.range 0 8
     |> Sequence.map ~f:(fun bit ->
-           proc
-             [ when_
-                 (x_offset ==:. bit)
-                 [ selected_write_data <-- new_framebuffer_value bit ]
-             ])
+         proc
+           [ when_
+               (x_offset ==:. bit)
+               [ selected_write_data <-- new_framebuffer_value bit ]
+           ])
     |> Sequence.to_list
     |> proc
   in
@@ -239,8 +239,8 @@ module Test = struct
     Sequence.(
       range 0 cycles
       |> iter ~f:(fun _ ->
-             Cyclesim.cycle sim;
-             print_outputs ()));
+           Cyclesim.cycle sim;
+           print_outputs ()));
     (* TODO: Draw tests *)
     ()
   ;;

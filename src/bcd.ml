@@ -30,23 +30,18 @@ let create ({ input; _ } : _ I.t) =
   let bcd_lut =
     Sequence.range 0 256
     |> Sequence.map ~f:(fun i ->
-           let i_as_str = Int.to_string i |> String.rev in
-           let pos_to_int i =
-             if i < String.length i_as_str
-             then String.get i_as_str i |> Char.to_int
-             else 0
-           in
-           let bcd_digit1 = pos_to_int 2 in
-           let bcd_digit2 = pos_to_int 1 in
-           let bcd_digit3 = pos_to_int 0 in
-           proc
-             [ when_
-                 (input ==:. i)
-                 [ digit1 <--. bcd_digit1
-                 ; digit2 <--. bcd_digit2
-                 ; digit3 <--. bcd_digit3
-                 ]
-             ])
+         let i_as_str = Int.to_string i |> String.rev in
+         let pos_to_int i =
+           if i < String.length i_as_str then String.get i_as_str i |> Char.to_int else 0
+         in
+         let bcd_digit1 = pos_to_int 2 in
+         let bcd_digit2 = pos_to_int 1 in
+         let bcd_digit3 = pos_to_int 0 in
+         proc
+           [ when_
+               (input ==:. i)
+               [ digit1 <--. bcd_digit1; digit2 <--. bcd_digit2; digit3 <--. bcd_digit3 ]
+           ])
     |> Sequence.to_list
     |> proc
   in

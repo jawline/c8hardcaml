@@ -43,9 +43,9 @@ module O = struct
 end
 
 let startup
-    ~(registers : Registers.t)
-    ~random_state_seed
-    ~(state : States.t Always.State_machine.t)
+  ~(registers : Registers.t)
+  ~random_state_seed
+  ~(state : States.t Always.State_machine.t)
   =
   let open Always in
   [ (* Seed the PRNG on the first cycle. Since this is fixed machines will always behave identically. *)
@@ -79,17 +79,17 @@ let create ~spec { I.clear; clock; enable; memory; keys } : _ O.t =
   let last_op = reg ~enable:vdd ~width:16 spec in
   let fetch, fetch_wiring =
     Main_memory.circuit_with_just_read_memory ram ~f:(fun ~memory ->
-        let o =
-          Fetch.create
-            ~spec:(r_enabled ~enable:in_fetch.value)
-            { Fetch.I.clock
-            ; clear
-            ; in_fetch = in_fetch.value
-            ; program_counter = internal.registers.pc.value
-            ; memory
-            }
-        in
-        o, o.memory)
+      let o =
+        Fetch.create
+          ~spec:(r_enabled ~enable:in_fetch.value)
+          { Fetch.I.clock
+          ; clear
+          ; in_fetch = in_fetch.value
+          ; program_counter = internal.registers.pc.value
+          ; memory
+          }
+      in
+      o, o.memory)
   in
   let main_execution =
     [ state.switch

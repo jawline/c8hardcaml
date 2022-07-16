@@ -33,12 +33,12 @@ let sim_disable_programming (i : _ I.t) = i.program := Bits.of_int ~width:1 0
 let sim_program_machine_rom sim (i : _ I.t) =
   (* Program font data into RAM before programming the ROM we read from disk *)
   Array.iteri C8.Main_memory.machine_rom ~f:(fun addr word ->
-      sim_set_write_ram sim i (C8.Main_memory.machine_rom_offset + addr) word)
+    sim_set_write_ram sim i (C8.Main_memory.machine_rom_offset + addr) word)
 ;;
 
 let sim_program_rom sim (i : _ I.t) ~rom =
   List.iteri rom ~f:(fun addr value ->
-      sim_set_write_ram sim i (addr + program_start_offset) value);
+    sim_set_write_ram sim i (addr + program_start_offset) value);
   sim_disable_programming i
 ;;
 
@@ -71,12 +71,12 @@ let sim_read_framebuffer sim (i : _ I.t) (o : _ O.t) =
 let draw_border_around_canvas ~canvas ~width ~height =
   Sequence.range 0 width
   |> Sequence.iter ~f:(fun x ->
-         Drawille.set canvas { Drawille.x; y = 0 };
-         Drawille.set canvas { Drawille.x; y = height - 1 });
+       Drawille.set canvas { Drawille.x; y = 0 };
+       Drawille.set canvas { Drawille.x; y = height - 1 });
   Sequence.range 0 height
   |> Sequence.iter ~f:(fun y ->
-         Drawille.set canvas { Drawille.x = 0; y };
-         Drawille.set canvas { Drawille.x = width - 1; y })
+       Drawille.set canvas { Drawille.x = 0; y };
+       Drawille.set canvas { Drawille.x = width - 1; y })
 ;;
 
 let draw_framebuffer ~set sim (i : _ I.t) (o : _ O.t) =
@@ -89,8 +89,8 @@ let draw_framebuffer ~set sim (i : _ I.t) (o : _ O.t) =
   in
   Sequence.range 0 screen_height
   |> Sequence.iter ~f:(fun y ->
-         Sequence.range 0 screen_width
-         |> Sequence.iter ~f:(fun x -> if pixel x y <> 0 then set x y else ()))
+       Sequence.range 0 screen_width
+       |> Sequence.iter ~f:(fun x -> if pixel x y <> 0 then set x y else ()))
 ;;
 
 let frame_buffer_as_string sim (i : _ I.t) (o : _ O.t) =
@@ -103,10 +103,10 @@ let frame_buffer_as_string sim (i : _ I.t) (o : _ O.t) =
   let set x y =
     let scaleseq = Sequence.range 0 scale in
     Sequence.iter scaleseq ~f:(fun xoff ->
-        Sequence.iter scaleseq ~f:(fun yoff ->
-            Drawille.set
-              canvas
-              { Drawille.x = (x * scale) + xoff + 1; y = (y * scale) + yoff + 1 }))
+      Sequence.iter scaleseq ~f:(fun yoff ->
+        Drawille.set
+          canvas
+          { Drawille.x = (x * scale) + xoff + 1; y = (y * scale) + yoff + 1 }))
   in
   draw_border_around_canvas ~canvas ~width:canvas_width ~height:canvas_height;
   draw_framebuffer ~set sim i o;
@@ -121,8 +121,20 @@ let sim_cycle_not_programming sim (i : _ I.t) (o : _ O.t) ~print =
 
 (* Average opcode takes 3 cycles to execute (2 to fetch, one to execute) *)
 let rough_cycles_per_second = 512 * 3
+let set_keys_unpressed = List.iter ~f:(fun key -> key := Bits.of_int ~width:1 0)
 
-let test_rom ~print_at_cycles ~rom_file ~create ~print_on_cycle ~print_on_exit =
+let assign_keys_randomly ~rand =
+  List.iter ~f:(fun key -> key := Bits.of_int ~width:1 (Random.State.int rand 1))
+;;
+
+let test_rom
+  ?(print_on_cycle = false)
+  ~run_for_cycles
+  ~print_at_interval
+  ~rom_file
+  ~create
+  ()
+  =
   let module Simulator = Cyclesim.With_interface (I) (O) in
   let sim = Simulator.create (create ~spec:r_sync) in
   let inputs : _ I.t = Cyclesim.inputs sim in
@@ -132,25 +144,18 @@ let test_rom ~print_at_cycles ~rom_file ~create ~print_on_cycle ~print_on_exit =
   sim_program_machine_rom sim inputs;
   (* Write the test rom to main memory *)
   sim_program_rom sim inputs ~rom:(String.to_list rom_file |> List.map ~f:Char.to_int);
-  (* Set all keys to low *)
-  List.iter inputs.keys.state ~f:(fun key -> key := Bits.of_int ~width:1 0);
-  List.iter print_at_cycles ~f:(fun cycles ->
-      (* Simulate the program we just wrote running for 100 cycles *)
-      Sequence.range 0 cycles
-      |> Sequence.iter ~f:(fun i ->
-             (* Every second roughly randomly re-assign pressed keys *)
-             if i % (rough_cycles_per_second / 5) = 0
-             then
-               List.iter inputs.keys.state ~f:(fun key ->
-                   key := Bits.of_int ~width:1 (Random.State.int rand 1));
-             sim_cycle_not_programming sim inputs outputs ~print:print_on_cycle;
-             if Bits.to_int !(outputs.core.executor_error) = 1
-             then (
-               (* Print registers and framebuffer on error *) printf "ERROR: ";
-               sim_cycle_not_programming sim inputs outputs ~print:true;
-               printf "%s" (frame_buffer_as_string sim inputs outputs);
-               raise_s [%message "Error in ROM"])
-             else ());
-      printf "%s\n" (frame_buffer_as_string sim inputs outputs));
-  sim_cycle_not_programming sim inputs outputs ~print:print_on_exit
+  set_keys_unpressed inputs.keys.state;
+  Sequence.range 0 run_for_cycles
+  |> Sequence.iter ~f:(fun cycle ->
+       if (cycle + 1) % print_at_interval = 0
+       then printf "%s\n" (frame_buffer_as_string sim inputs outputs);
+       if cycle % (rough_cycles_per_second / 5) = 0
+       then assign_keys_randomly ~rand inputs.keys.state;
+       sim_cycle_not_programming sim inputs outputs ~print:print_on_cycle;
+       if Bits.to_int !(outputs.core.executor_error) = 1
+       then (
+         (* Print registers and framebuffer on error *) printf "ERROR: ";
+         sim_cycle_not_programming sim inputs outputs ~print:true;
+         printf "%s" (frame_buffer_as_string sim inputs outputs);
+         raise_s [%message "Error in ROM"]))
 ;;

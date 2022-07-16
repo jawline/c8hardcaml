@@ -9,7 +9,7 @@ type t =
     primary_op : Signal.t
   ; register_zero : Always.Variable.t
   ; flag_register : Always.Variable.t
-        (** If this opcode has a 12-bit pointer this signal will be equal to it *)
+      (** If this opcode has a 12-bit pointer this signal will be equal to it *)
   ; opcode_address : Signal.t
   ; (* If the opcode contains an immediate value in the final 8 bits this signal will be equal to it *)
     opcode_immediate : Signal.t
@@ -59,8 +59,8 @@ let create ~spec ~keys ~executing_opcode () =
 ;;
 
 let key_instructions
-    ~done_with_instruction
-    { registers = { pc; _ }; opcode_first_register; opcode_immediate; keys; _ }
+  ~done_with_instruction
+  { registers = { pc; _ }; opcode_first_register; opcode_immediate; keys; _ }
   =
   let open Always in
   let open Variable in
@@ -68,7 +68,7 @@ let key_instructions
   proc
     [ (* One-hot encode the key under Vx *)
       List.mapi keys.state ~f:(fun i key ->
-          proc [ when_ (opcode_first_register.value ==:. i) [ key_under_vx <-- key ] ])
+        proc [ when_ (opcode_first_register.value ==:. i) [ key_under_vx <-- key ] ])
       |> proc
     ; when_
         (opcode_immediate ==:. 0x9E)
@@ -92,18 +92,18 @@ let key_instructions
 ;;
 
 let memory_instructions
-    ~spec
-    ~clock
-    ~clear
-    ~(ram : Main_memory.t)
-    ok
-    done_with_instruction
-    { registers = { pc; i; registers; _ }
-    ; opcode_first_register
-    ; opcode_second_nibble
-    ; opcode_immediate
-    ; _
-    }
+  ~spec
+  ~clock
+  ~clear
+  ~(ram : Main_memory.t)
+  ok
+  done_with_instruction
+  { registers = { pc; i; registers; _ }
+  ; opcode_first_register
+  ; opcode_second_nibble
+  ; opcode_immediate
+  ; _
+  }
   =
   let open Always in
   let open Variable in
@@ -115,10 +115,10 @@ let memory_instructions
         (List.length registers + if offset_register_by_one_cycle then 1 else 0)
       |> Sequence.to_list
       |> List.map ~f:(fun n ->
-             let register_n = if offset_register_by_one_cycle then n - 1 else n in
-             let round_register = List.nth registers register_n in
-             let i = i.value +:. n in
-             proc [ when_ (reg_memory_step.value ==:. n) [ round_fn i round_register ] ])
+           let register_n = if offset_register_by_one_cycle then n - 1 else n in
+           let round_register = List.nth registers register_n in
+           let i = i.value +:. n in
+           proc [ when_ (reg_memory_step.value ==:. n) [ round_fn i round_register ] ])
       |> proc
     in
     let final_step =
@@ -135,22 +135,22 @@ let memory_instructions
   in
   let reg_dump =
     reg_memory_op ~offset_register_by_one_cycle:false ~round_fn:(fun i register ->
-        let register = Option.value_exn register in
-        proc
-          [ ram.write_enable <--. 1
-          ; ram.write_address <-- to_main_addr i
-          ; ram.write_data <-- register.value
-          ])
+      let register = Option.value_exn register in
+      proc
+        [ ram.write_enable <--. 1
+        ; ram.write_address <-- to_main_addr i
+        ; ram.write_data <-- register.value
+        ])
   in
   let reg_load =
     reg_memory_op ~offset_register_by_one_cycle:true ~round_fn:(fun i register ->
-        let read_i_for_next_round = proc [ ram.read_address <-- to_main_addr i ] in
-        let store_last_round_in_register =
-          match register with
-          | Some v -> proc [ v <-- ram.read_data ]
-          | None -> proc []
-        in
-        proc [ read_i_for_next_round; store_last_round_in_register ])
+      let read_i_for_next_round = proc [ ram.read_address <-- to_main_addr i ] in
+      let store_last_round_in_register =
+        match register with
+        | Some v -> proc [ v <-- ram.read_data ]
+        | None -> proc []
+      in
+      proc [ read_i_for_next_round; store_last_round_in_register ])
   in
   (* TODO: Use a slower algorithm instead of wasting so many gates for bcd ?
      To save on time we implement BCD in hardware through a lookup table *)
@@ -222,16 +222,16 @@ let memory_instructions
 ;;
 
 let register_instructions
-    ~done_with_instruction
-    { registers = { pc; _ }
-    ; flag_register
-    ; opcode_first_register
-    ; opcode_second_register
-    ; opcode_first_register_9bit
-    ; opcode_second_register_9bit
-    ; opcode_final_nibble
-    ; _
-    }
+  ~done_with_instruction
+  { registers = { pc; _ }
+  ; flag_register
+  ; opcode_first_register
+  ; opcode_second_register
+  ; opcode_first_register_9bit
+  ; opcode_second_register_9bit
+  ; opcode_final_nibble
+  ; _
+  }
   =
   let open Always in
   let open Variable in
@@ -322,11 +322,11 @@ let register_instructions
 ;;
 
 let call_instruction
-    ~no_error
-    ~done_with_instruction
-    ~spec
-    ~(ram : Main_memory.t)
-    { registers = { pc; sp; _ }; opcode_address; _ }
+  ~no_error
+  ~done_with_instruction
+  ~spec
+  ~(ram : Main_memory.t)
+  { registers = { pc; sp; _ }; opcode_address; _ }
   =
   let open Always in
   let step = Variable.reg ~width:1 spec in
@@ -353,11 +353,11 @@ let call_instruction
 ;;
 
 let ret_instruction
-    ~no_error
-    ~done_with_instruction
-    ~spec
-    ~(ram : Main_memory.t)
-    { registers = { pc; sp; _ }; _ }
+  ~no_error
+  ~done_with_instruction
+  ~spec
+  ~(ram : Main_memory.t)
+  { registers = { pc; sp; _ }; _ }
   =
   let open Always in
   let prev_sp = sp.value -:. 2 in
@@ -397,30 +397,30 @@ module First_nibble_zero_opcodes = struct
 end
 
 let first_nibble_zero_implementation
-    ~spec
-    ~ram
-    ~no_error
-    ~done_with_instruction
-    ({ registers = { pc; _ }; opcode_immediate; _ } as t)
+  ~spec
+  ~ram
+  ~no_error
+  ~done_with_instruction
+  ({ registers = { pc; _ }; opcode_immediate; _ } as t)
   =
   let open Always in
   let enable_clear = wire_false () in
   let clear_implementation, clear_wiring =
     Main_memory.circuit_with_memory ram ~f:(fun ~memory ->
-        let o =
-          Memset.create
-            ~spec:r_sync
-            { Memset.I.clock
-            ; clear
-            ; enable = enable_clear.value
-            ; address =
-                Signal.of_int ~width:(wsz `Main_address) Main_memory.framebuffer_start
-            ; size = Signal.of_int ~width:(wsz `Byte) Main_memory.framebuffer_size
-            ; write_value = Signal.of_int ~width:8 0
-            ; memory
-            }
-        in
-        o, o.memory)
+      let o =
+        Memset.create
+          ~spec:r_sync
+          { Memset.I.clock
+          ; clear
+          ; enable = enable_clear.value
+          ; address =
+              Signal.of_int ~width:(wsz `Main_address) Main_memory.framebuffer_start
+          ; size = Signal.of_int ~width:(wsz `Byte) Main_memory.framebuffer_size
+          ; write_value = Signal.of_int ~width:8 0
+          ; memory
+          }
+      in
+      o, o.memory)
   in
   let impl t v accum _ =
     accum @ [ when_ (opcode_immediate ==:. First_nibble_zero_opcodes.to_int t) v ]
@@ -450,9 +450,9 @@ let assign_address ?(mutate = Fn.id) ~done_with_instruction register { opcode_ad
 ;;
 
 let skip_imm_inv
-    ~done_with_instruction
-    invariant
-    { registers = { pc; _ }; opcode_first_register; opcode_immediate; _ }
+  ~done_with_instruction
+  invariant
+  { registers = { pc; _ }; opcode_first_register; opcode_immediate; _ }
   =
   let open Always in
   proc
@@ -465,9 +465,9 @@ let skip_imm_inv
 ;;
 
 let skip_reg_inv
-    ~done_with_instruction
-    invariant
-    { registers = { pc; _ }; opcode_first_register; opcode_second_register; _ }
+  ~done_with_instruction
+  invariant
+  { registers = { pc; _ }; opcode_first_register; opcode_second_register; _ }
   =
   let open Always in
   proc
@@ -480,9 +480,9 @@ let skip_reg_inv
 ;;
 
 let combine_register_imm
-    ~done_with_instruction
-    ~f
-    { registers = { pc; _ }; opcode_first_register; opcode_immediate; _ }
+  ~done_with_instruction
+  ~f
+  { registers = { pc; _ }; opcode_first_register; opcode_immediate; _ }
   =
   let open Always in
   proc
@@ -536,37 +536,37 @@ module Opcode_first_nibble = struct
 end
 
 let execute_instruction
-    ~spec
-    ~clock
-    ~clear
-    ~error
-    ~done_
-    ~ram
-    ~(random_state : _ Xor_shift.O.t)
-    ({ registers = { pc; i; _ }
-     ; primary_op
-     ; opcode_first_register
-     ; opcode_second_register
-     ; opcode_final_nibble
-     ; opcode_immediate
-     ; register_zero
-     ; _
-     } as t)
+  ~spec
+  ~clock
+  ~clear
+  ~error
+  ~done_
+  ~ram
+  ~(random_state : _ Xor_shift.O.t)
+  ({ registers = { pc; i; _ }
+   ; primary_op
+   ; opcode_first_register
+   ; opcode_second_register
+   ; opcode_final_nibble
+   ; opcode_immediate
+   ; register_zero
+   ; _
+   } as t)
   =
   let open Always in
   let draw_enable = wire_false () in
   let draw_implementation, draw_wiring =
     Main_memory.circuit_with_memory ram ~f:(fun ~memory ->
-        let i = i.value in
-        let x = opcode_first_register.value in
-        let y = opcode_second_register.value in
-        let n = opcode_final_nibble in
-        let o =
-          Draw.create
-            ~spec:r_sync
-            { Draw.I.clock; clear; enable = draw_enable.value; x; y; n; i; memory }
-        in
-        o, o.memory)
+      let i = i.value in
+      let x = opcode_first_register.value in
+      let y = opcode_second_register.value in
+      let n = opcode_final_nibble in
+      let o =
+        Draw.create
+          ~spec:r_sync
+          { Draw.I.clock; clear; enable = draw_enable.value; x; y; n; i; memory }
+      in
+      o, o.memory)
   in
   let no_error = proc [ error <--. 0 ] in
   let done_with_instruction = proc [ no_error; done_ <--. 1 ] in

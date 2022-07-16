@@ -87,8 +87,8 @@ module Test = struct
     Sequence.(
       range 0 cycles
       |> iter ~f:(fun _ ->
-             Cyclesim.cycle sim;
-             print_outputs ()));
+           Cyclesim.cycle sim;
+           print_outputs ()));
     ()
   ;;
 

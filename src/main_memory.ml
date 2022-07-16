@@ -137,10 +137,10 @@ module In_circuit = struct
     ;;
 
     let always_create
-        ~(read_address : Always.Variable.t)
-        ~(write_enable : Always.Variable.t)
-        ~(write_address : Always.Variable.t)
-        ~(write_data : Always.Variable.t)
+      ~(read_address : Always.Variable.t)
+      ~(write_enable : Always.Variable.t)
+      ~(write_address : Always.Variable.t)
+      ~(write_data : Always.Variable.t)
       =
       create
         ~read_address:read_address.value
@@ -150,8 +150,8 @@ module In_circuit = struct
     ;;
 
     let t_of_main_memory
-        ({ read_address; write_enable; write_address; write_data; read_data = _ } :
-          main_memory)
+      ({ read_address; write_enable; write_address; write_data; read_data = _ } :
+        main_memory)
       =
       always_create ~read_address ~write_enable ~write_address ~write_data
     ;;

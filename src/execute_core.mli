@@ -8,7 +8,7 @@ type t =
     primary_op : Signal.t
   ; register_zero : Always.Variable.t
   ; flag_register : Always.Variable.t
-        (** If this opcode has a 12-bit pointer this signal will be equal to it *)
+      (** If this opcode has a 12-bit pointer this signal will be equal to it *)
   ; opcode_address : Signal.t
   ; (* If the opcode contains an immediate value in the final 8 bits this signal will be equal to it *)
     opcode_immediate : Signal.t

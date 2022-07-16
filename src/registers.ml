@@ -7,8 +7,8 @@ module In_circuit = struct
     { pc : 'a [@bits 12]
     ; i : 'a [@bits 12]
     ; sp : 'a
-          [@bits 12]
-          (* Rename these to Vn or some other name to separate it from the module name? *)
+         [@bits 12]
+         (* Rename these to Vn or some other name to separate it from the module name? *)
     ; registers : 'a list [@length 16] [@bits 8]
     }
   [@@deriving sexp_of, hardcaml]
@@ -41,13 +41,13 @@ let to_circuit t =
 ;;
 
 let assign_of_circuit
-    ({ pc; i; sp; registers } : t)
-    ({ pc = new_pc; i = new_i; sp = new_sp; registers = new_registers } : _ In_circuit.t)
+  ({ pc; i; sp; registers } : t)
+  ({ pc = new_pc; i = new_i; sp = new_sp; registers = new_registers } : _ In_circuit.t)
   =
   let open Always in
   let assign_registers =
     List.map (List.zip_exn registers new_registers) ~f:(fun (register, new_register) ->
-        register <-- new_register)
+      register <-- new_register)
     |> proc
   in
   proc [ pc <-- new_pc; i <-- new_i; sp <-- new_sp; assign_registers ]

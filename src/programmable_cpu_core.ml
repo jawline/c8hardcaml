@@ -41,12 +41,12 @@ let create ~spec (i : _ I.t) : _ O.t =
   let enable = wire_false () in
   let core, core_wiring =
     Main_memory.circuit_with_memory ram ~f:(fun ~memory ->
-        let core =
-          Cpu_core.create
-            ~spec
-            { Cpu_core.I.clear; clock; enable = enable.value; memory; keys = i.keys }
-        in
-        core, core.memory)
+      let core =
+        Cpu_core.create
+          ~spec
+          { Cpu_core.I.clear; clock; enable = enable.value; memory; keys = i.keys }
+      in
+      core, core.memory)
   in
   compile
     [ if_ (is_set i.program) [ programming_mode ~ram i ] [ core_wiring; set_high enable ]

@@ -61,14 +61,14 @@ let test_with_range ~opcodes ~stop_when ~range:(range_start, range_stop) =
     printf "\n");
   sim_program_rom sim inputs ~rom;
   List.iter opcodes ~f:(fun _ ->
-      let step () =
-        sim_cycle_not_programming sim inputs outputs ~print;
-        stop_when
-          (Bits.to_int !(outputs.core.executor_error))
-          (Bits.to_int !(outputs.core.executor_done))
-      in
-      let rec until ~f = if f () then () else until ~f in
-      until ~f:step);
+    let step () =
+      sim_cycle_not_programming sim inputs outputs ~print;
+      stop_when
+        (Bits.to_int !(outputs.core.executor_error))
+        (Bits.to_int !(outputs.core.executor_done))
+    in
+    let rec until ~f = if f () then () else until ~f in
+    until ~f:step);
   (* When we stop on done the registers have just been set so run one more cycle so that their new state is reflected in output *)
   sim_cycle_not_programming sim inputs outputs ~print;
   let range = sim_read_memory_range sim inputs outputs range_start range_stop in
@@ -87,7 +87,7 @@ let print_registers ~(registers : _ C8.Registers.In_circuit.t) =
   let as_strings =
     [ sprintf "I:%s" (Bits.to_string !(registers.i)) ]
     @ List.mapi registers.registers ~f:(fun i register ->
-          sprintf "V%i:%s" i (Bits.to_string !register))
+        sprintf "V%i:%s" i (Bits.to_string !register))
   in
   Core.print_s [%message "" ~_:(as_strings : string list)]
 ;;
@@ -98,8 +98,7 @@ let%expect_test "step (enabled)" =
   in
   let pc = Bits.to_int pc in
   Core.print_s [%message (pc : int)];
-  [%expect
-    {|
+  [%expect {|
     WARN: Sound is not implemented
     (pc 514) |}]
 ;;
@@ -110,8 +109,7 @@ let%expect_test "step (jump) to 1024" =
   in
   let pc, error = Bits.to_int pc, Bits.to_int error in
   Core.print_s [%message (pc : int) (error : int)];
-  [%expect
-    {|
+  [%expect {|
     WARN: Sound is not implemented
     ((pc 1024) (error 0)) |}]
 ;;
@@ -122,8 +120,7 @@ let%expect_test "step (jump) to 512" =
   in
   let pc, error = Bits.to_int pc, Bits.to_int error in
   Core.print_s [%message (pc : int) (error : int)];
-  [%expect
-    {|
+  [%expect {|
     WARN: Sound is not implemented
     ((pc 512) (error 0)) |}]
 ;;
@@ -132,8 +129,7 @@ let%expect_test "step (jump) to 1" =
   let pc, error, _ = test ~opcodes:[ jump_to_1 ] ~stop_when:(bounded_standard_stop ()) in
   let pc, error = Bits.to_int pc, Bits.to_int error in
   Core.print_s [%message (pc : int) (error : int)];
-  [%expect
-    {|
+  [%expect {|
     WARN: Sound is not implemented
     ((pc 1) (error 0)) |}]
 ;;
