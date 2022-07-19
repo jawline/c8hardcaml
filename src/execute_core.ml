@@ -337,13 +337,13 @@ let call_instruction
     ; when_
         (step.value ==:. 0)
         [ ram.write_enable <--. 1
-        ; ram.write_address <-- to_main_addr (sp.value +:. Main_memory.stack_start)
+        ; ram.write_address <-- to_main_addr sp.value +:. Main_memory.stack_start
         ; ram.write_data <-- select next_pc 11 4
         ]
     ; when_
         (step.value ==:. 1)
         [ ram.write_enable <--. 1
-        ; ram.write_address <-- to_main_addr (sp.value +:. (Main_memory.stack_start + 1))
+        ; ram.write_address <-- to_main_addr sp.value +:. (Main_memory.stack_start + 1)
         ; ram.write_data <-- uresize (select next_pc 3 0) (wsz `Byte)
         ; sp <-- sp.value +:. 2
         ; pc <-- opcode_address
@@ -360,19 +360,17 @@ let ret_instruction
   { registers = { pc; sp; _ }; _ }
   =
   let open Always in
-  let prev_sp = sp.value -:. 2 in
   let step = Variable.reg ~width:2 spec in
   let first_read = Variable.reg ~width:8 spec in
   let new_pc = concat_msb [ first_read.value; select ram.read_data 3 0 ] in
+  let call_origin_pointer = to_main_addr sp.value +:. (Main_memory.stack_start - 2) in
   proc
     [ step <-- step.value +:. 1
     ; no_error
-    ; when_ (step.value ==:. 0) [ ram.read_address <-- to_main_addr prev_sp; no_error ]
+    ; when_ (step.value ==:. 0) [ ram.read_address <-- call_origin_pointer; no_error ]
     ; when_
         (step.value ==:. 1)
-        [ ram.read_address <-- to_main_addr (prev_sp +:. 1)
-        ; first_read <-- ram.read_data
-        ]
+        [ ram.read_address <-- call_origin_pointer +:. 1; first_read <-- ram.read_data ]
     ; when_
         (step.value ==:. 2)
         [ step <--. 0; sp <-- sp.value -:. 2; pc <-- new_pc; done_with_instruction ]
