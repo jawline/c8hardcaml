@@ -327,7 +327,30 @@ let%expect_test "call to draw zero and then clear screen" =
   test_bytes
     ~run_for_cycles:rough_cycles_per_second
     ~print_at_interval:rough_cycles_per_second
-    ~rom:[ 0x00 ; 0xE0 ; 0x12 ; 0x10 ; 0x60 ; 0x14 ; 0x61 ; 0x14 ; 0x62 ; 0x00 ; 0xF2 ; 0x29 ; 0xD0 ; 0x15 ; 0x00 ; 0xEE ; 0x22 ; 0x04 ; 0x00 ; 0xE0 ; 0x12 ; 0x14 ]
+    ~rom:
+      [ 0x00
+      ; 0xE0
+      ; 0x12
+      ; 0x10
+      ; 0x60
+      ; 0x14
+      ; 0x61
+      ; 0x14
+      ; 0x62
+      ; 0x00
+      ; 0xF2
+      ; 0x29
+      ; 0xD0
+      ; 0x15
+      ; 0x00
+      ; 0xEE
+      ; 0x22
+      ; 0x04
+      ; 0x00
+      ; 0xE0
+      ; 0x12
+      ; 0x14
+      ]
     ~create
     ();
   [%expect
@@ -352,7 +375,6 @@ let%expect_test "call to draw zero and then clear screen" =
           ⠓⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠚ |}];
   return ()
 ;;
-
 
 let%expect_test "Draw with a loop drawing each character with a call" =
   test_bytes

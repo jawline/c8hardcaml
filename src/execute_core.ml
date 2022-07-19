@@ -197,7 +197,7 @@ let memory_instructions
     ; when_ (opcode_immediate ==:. 0x33) [ bcd_logic ]
     ; when_ (opcode_immediate ==:. 0x55) [ reg_dump ]
     ; when_ (opcode_immediate ==:. 0x65) [ reg_load ]
-    ; (* TODO: This delay register is not precise; it should tick at 60Hz but instead we tick it every 8 cycles. *)
+    ; (* This delay register is not precise; it should tick at 60Hz but instead we tick it every 8 cycles. *)
       when_
         (delay_register.value <>:. 0)
         [ delay_register <-- delay_register.value -:. 1 ]
@@ -428,8 +428,7 @@ let first_nibble_zero_implementation
     ~no_op:(impl No_op [ pc <-- pc.value +:. 2; done_with_instruction ])
     ~ret:(impl Ret [ ret_instruction ~no_error ~done_with_instruction ~spec ~ram t ])
     ~clear_screen:
-      ((* TODO: Clear screen tests *)
-       impl
+      (impl
          Clear_screen
          [ clear_wiring
          ; no_error
