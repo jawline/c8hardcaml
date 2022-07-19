@@ -6,18 +6,20 @@ ldi 2, 0
 
 jmp loop
 
+draw_next_character:
+  set-digit 2
+  draw 0, 1, 5
+  addi 0, 5
+  addi 2, 1
+  ret
+
 next_row:
   ldi 0, 2
   addi 1, 5
   ldi 2, 0
 
 loop:
-  set-digit 2
-  draw 0, 1, 5
-  addi 0, 5
-  addi 2, 1
-  
+  call draw_next_character
   skip-neq-i 0, 62
   jmp next_row
-
   jmp loop

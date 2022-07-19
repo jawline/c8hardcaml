@@ -45,6 +45,10 @@ enum Token {
     JumpImmediate {
         label: String,
     },
+    CallImmediate {
+        label: String,
+    },
+    Return,
     CmpRegisterImmediateEqual {
         register: usize,
         immediate: u8,
@@ -74,6 +78,8 @@ impl Token {
                 immediate: _,
             } => format!("addi"),
             Token::JumpImmediate { label: _ } => format!("jmp"),
+            Token::CallImmediate { label: _ } => format!("call"),
+            Token::Return => format!("ret"),
             Token::CmpRegisterImmediateEqual {
                 register: _,
                 immediate: _,
@@ -129,6 +135,11 @@ impl Token {
                 let label_address = Self::resolve_address(labels, &label)?;
                 0b0001_0000_0000_0000 | ((label_address + ADDRESS_OFFSET) as u16)
             }
+            Token::CallImmediate { label } => {
+                let label_address = Self::resolve_address(labels, &label)?;
+                0b0010_0000_0000_0000 | ((label_address + ADDRESS_OFFSET) as u16)
+            }
+            Token::Return => 0b0000_0000_1110_1110,
             Token::CmpRegisterImmediateEqual {
                 register,
                 immediate,
@@ -158,6 +169,8 @@ impl Token {
 
         if command == Token::ClearScreen.name() {
             Ok(Token::ClearScreen)
+        } else if command == Token::Return.name() {
+            Ok(Token::Return)
         } else if command
             == (Token::SetDigit {
                 /* The value of digit here is ignored */ digit: 0,
@@ -257,6 +270,16 @@ impl Token {
         {
             let label = arguments.get(0).ok_or(err("label invalid"))?;
             Ok(Token::JumpImmediate {
+                label: label.to_string(),
+            })
+        } else if command
+            == (Token::CallImmediate {
+                label: "".to_string(),
+            })
+            .name()
+        {
+            let label = arguments.get(0).ok_or(err("label invalid"))?;
+            Ok(Token::CallImmediate {
                 label: label.to_string(),
             })
         } else if command
