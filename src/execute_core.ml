@@ -562,7 +562,15 @@ let execute_instruction
       let o =
         Draw.create
           ~spec:r_sync
-          { Draw.I.clock; clear; enable = draw_enable.value; x; y; n; i; memory }
+          { Draw.I.clock
+          ; clear
+          ; enable = draw_enable.value
+          ; x = select x 5 0
+          ; y = select y 4 0
+          ; n
+          ; i
+          ; memory
+          }
       in
       o, o.memory)
   in

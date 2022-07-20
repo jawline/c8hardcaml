@@ -26,8 +26,8 @@ module I = struct
     { clock : 'a [@bits 1]
     ; clear : 'a [@bits 1]
     ; enable : 'a [@bits 1]
-    ; x : 'a [@bits 8]
-    ; y : 'a [@bits 8]
+    ; x : 'a [@bits 6]
+    ; y : 'a [@bits 5]
     ; n : 'a [@bits 4]
     ; i : 'a [@bits 12]
     ; memory : 'a Main_memory.In_circuit.I.t
@@ -38,7 +38,7 @@ end
 module O = struct
   type 'a t =
     { finished : 'a [@bits 1]
-    ; step : 'a [@bits 12]
+    ; step : 'a [@bits 4]
     ; memory : 'a Main_memory.In_circuit.O.t
     ; flag : 'a [@bits 1]
     }
@@ -117,27 +117,25 @@ let create ~spec (i : _ I.t) =
   let open Always in
   let open Variable in
   let state = State_machine.create (module Draw_state) ~enable:vdd spec in
-  let x = to_main_addr i.x in
-  let y = to_main_addr i.y in
-  let n = to_addr i.n in
   let i_register = i.i in
   let finished = wire ~default:(Signal.of_int ~width:1 0) in
   let ram = Main_memory.Wires.create () in
   (* Step calculates the current depth into the draw operation *)
-  let step = reg ~enable:vdd ~width:(wsz `Address) spec in
+  let step = reg ~enable:vdd ~width:4 spec in
+  let x = to_main_addr i.x in
+  let y = to_main_addr (i.y +: uresize step.value 5) in
   let collision_accumulator = reg ~enable:vdd ~width:1 spec in
-  let last_step = step.value ==: n in
+  let last_step = step.value ==: i.n in
   let framebuffer_address =
-    let step_value_as_address = to_main_addr step.value in
     (* Shifting y left by 3 is the same as multiply it by screen_width / 8 *)
-    let row_offset = sll (y +: step_value_as_address) 3 in
+    let row_offset = sll y 3 in
     (* Shifting x right by three is the same as dividing it by 8 *)
     let framebuffer_offset = srl x 3 +: row_offset in
     framebuffer_offset +:. Main_memory.framebuffer_start
   in
   let current_i = Variable.reg ~enable:vdd ~width:8 spec in
   let read_i_step =
-    [ ram.read_address <-- to_main_addr (i_register +: step.value)
+    [ ram.read_address <-- to_main_addr (i_register +: to_addr step.value)
     ; state.set_next Read_lhs
     ; current_i <--. 0
     ]
@@ -221,8 +219,8 @@ module Test = struct
     Cyclesim.cycle sim;
     Cyclesim.cycle sim;
     inputs.enable := Bits.of_int ~width:1 1;
-    inputs.x := Bits.of_int ~width:8 x;
-    inputs.y := Bits.of_int ~width:8 y;
+    inputs.x := Bits.of_int ~width:6 x;
+    inputs.y := Bits.of_int ~width:5 y;
     inputs.n := Bits.of_int ~width:4 n;
     inputs.i := Bits.of_int ~width:12 i;
     let print_outputs () =
