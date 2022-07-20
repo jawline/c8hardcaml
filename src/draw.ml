@@ -116,14 +116,14 @@ let draw_side
 (** We calculate an 11 bit value that represents the wrapped offset into the framebuffer,
       expand that to 16 bits and then add it to the framebuffer start to get the address
       in main memory of the next write. *)
-let framebuffer_address ~x ~y ~which_byte =
-  let x = uresize x 11 in
+let framebuffer_address ~x ~y ~x_offset =
+  let x = uresize (x +:. x_offset) 11 in
   let y = uresize y 11 in
   (* Shifting y left by 3 is the same as multiply it by screen_width / 8 *)
   let row_offset = sll y 3 in
   (* Shifting x right by three is the same as dividing it by 8 *)
   let framebuffer_offset = srl x 3 +: row_offset in
-  (framebuffer_offset +:. which_byte |> to_main_addr) +:. Main_memory.framebuffer_start
+  to_main_addr framebuffer_offset +:. Main_memory.framebuffer_start
 ;;
 
 let create ~spec ({ enable; x; y; n; i; memory; _ } : _ I.t) =
@@ -155,7 +155,7 @@ let create ~spec ({ enable; x; y; n; i; memory; _ } : _ I.t) =
       ~x
       ~side:`Lhs
       ~current_i:current_i.value
-      ~framebuffer_address:(framebuffer_address ~x ~y ~which_byte:0)
+      ~framebuffer_address:(framebuffer_address ~x ~y ~x_offset:0)
       ~collision_accumulator
   in
   let read_lhs = proc [ current_i <-- memory.read_data; read_lhs ] in
@@ -167,7 +167,7 @@ let create ~spec ({ enable; x; y; n; i; memory; _ } : _ I.t) =
       ~x
       ~side:`Rhs
       ~current_i:current_i.value
-      ~framebuffer_address:(framebuffer_address ~x ~y ~which_byte:1)
+      ~framebuffer_address:(framebuffer_address ~x ~y ~x_offset:8)
       ~collision_accumulator
   in
   (* On write_rhs we should increment the step *)
