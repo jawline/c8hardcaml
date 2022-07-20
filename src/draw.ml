@@ -113,36 +113,40 @@ let draw_side
   read_step, write_step, collided
 ;;
 
-let create ~spec (i : _ I.t) =
+(** We calculate an 11 bit value that represents the wrapped offset into the framebuffer,
+      expand that to 16 bits and then add it to the framebuffer start to get the address
+      in main memory of the next write. *)
+let framebuffer_address ~x ~y ~which_byte =
+  let x = uresize x 11 in
+  let y = uresize y 11 in
+  (* Shifting y left by 3 is the same as multiply it by screen_width / 8 *)
+  let row_offset = sll y 3 in
+  (* Shifting x right by three is the same as dividing it by 8 *)
+  let framebuffer_offset = srl x 3 +: row_offset in
+  (framebuffer_offset +:. which_byte |> to_main_addr) +:. Main_memory.framebuffer_start
+;;
+
+let create ~spec ({ enable; x; y; n; i; memory; _ } : _ I.t) =
   let open Always in
   let open Variable in
   let state = State_machine.create (module Draw_state) ~enable:vdd spec in
-  let i_register = i.i in
   let finished = wire ~default:(Signal.of_int ~width:1 0) in
   let ram = Main_memory.Wires.create () in
   (* Step calculates the current depth into the draw operation *)
   let step = reg ~enable:vdd ~width:4 spec in
-  let x = to_main_addr i.x in
-  let y = to_main_addr (i.y +: uresize step.value 5) in
+  let y = y +: uresize step.value 5 in
   let collision_accumulator = reg ~enable:vdd ~width:1 spec in
-  let last_step = step.value ==: i.n in
-  let framebuffer_address =
-    (* Shifting y left by 3 is the same as multiply it by screen_width / 8 *)
-    let row_offset = sll y 3 in
-    (* Shifting x right by three is the same as dividing it by 8 *)
-    let framebuffer_offset = srl x 3 +: row_offset in
-    framebuffer_offset +:. Main_memory.framebuffer_start
-  in
+  let last_step = step.value ==: n in
   let current_i = Variable.reg ~enable:vdd ~width:8 spec in
   let read_i_step =
-    [ ram.read_address <-- to_main_addr (i_register +: to_addr step.value)
+    [ ram.read_address <-- to_main_addr (i +: to_addr step.value)
     ; state.set_next Read_lhs
     ; current_i <--. 0
     ]
   in
   (* I will be read one cycle before read_lhs so we need to write it down
      when on that side. *)
-  let read_data = i.memory.read_data in
+  let read_data = memory.read_data in
   let read_lhs, write_lhs, _first_collide =
     draw_side
       ~read_data
@@ -151,10 +155,10 @@ let create ~spec (i : _ I.t) =
       ~x
       ~side:`Lhs
       ~current_i:current_i.value
-      ~framebuffer_address
+      ~framebuffer_address:(framebuffer_address ~x ~y ~which_byte:0)
       ~collision_accumulator
   in
-  let read_lhs = proc [ current_i <-- i.memory.read_data; read_lhs ] in
+  let read_lhs = proc [ current_i <-- memory.read_data; read_lhs ] in
   let read_rhs, write_rhs, collided =
     draw_side
       ~read_data
@@ -163,7 +167,7 @@ let create ~spec (i : _ I.t) =
       ~x
       ~side:`Rhs
       ~current_i:current_i.value
-      ~framebuffer_address:(framebuffer_address +:. 1)
+      ~framebuffer_address:(framebuffer_address ~x ~y ~which_byte:1)
       ~collision_accumulator
   in
   (* On write_rhs we should increment the step *)
@@ -191,7 +195,7 @@ let create ~spec (i : _ I.t) =
   in
   compile
     [ if_
-        i.enable
+        enable
         [ if_ last_step [ set_finished_and_reset ] [ step_draw ] ]
         [ state.set_next Read_i ]
     ];
