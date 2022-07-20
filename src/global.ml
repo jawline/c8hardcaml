@@ -32,4 +32,5 @@ let to_main_addr addr = uresize addr (wsz `Main_address)
 let to_addr addr = uresize addr (wsz `Address)
 let wire_false () = Always.Variable.wire ~default:(Signal.of_int ~width:1 0)
 let is_set v = v ==:. 1
+let is_not_set v = v ==:. 0
 let set_high v = Always.(v <--. 1)

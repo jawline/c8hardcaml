@@ -24,4 +24,5 @@ val to_main_addr : Signal.t -> Signal.t
 val to_addr : Signal.t -> Signal.t
 val wire_false : unit -> Always.Variable.t
 val is_set : Signal.t -> Signal.t
+val is_not_set : Signal.t -> Signal.t
 val set_high : Always.Variable.t -> Always.t

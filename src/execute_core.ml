@@ -357,7 +357,7 @@ let ret_instruction
   ~done_with_instruction
   ~spec
   ~(ram : Main_memory.t)
-  { registers = { pc; sp; _ }; _ }
+  { registers = { pc; sp; registers; _ }; _ }
   =
   let open Always in
   let step = Variable.reg ~width:2 spec in
@@ -370,7 +370,10 @@ let ret_instruction
     ; when_ (step.value ==:. 0) [ ram.read_address <-- call_origin_pointer; no_error ]
     ; when_
         (step.value ==:. 1)
-        [ ram.read_address <-- call_origin_pointer +:. 1; first_read <-- ram.read_data ]
+        [ ram.read_address <-- call_origin_pointer +:. 1
+        ; List.nth_exn registers 14 <-- ram.read_data
+        ; first_read <-- ram.read_data
+        ]
     ; when_
         (step.value ==:. 2)
         [ step <--. 0; sp <-- sp.value -:. 2; pc <-- new_pc; done_with_instruction ]

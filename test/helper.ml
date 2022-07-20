@@ -4,6 +4,9 @@ open Hardcaml
 open C8.Global
 open C8.Programmable_cpu_core
 
+(* NOTE: Using the programming mode mid instruction or fetch (any time other than at startup or when executor_done = 1)
+   will result in weird behaviour because you may erase the read_data state of the CPU. *)
+
 let program_start_offset = 0x200
 
 let make_rom_of_opcodes ~opcodes =
@@ -22,12 +25,10 @@ let sim_set_write_ram sim (i : _ I.t) addr data =
   i.program_address := Bits.of_int ~width:(wsz `Main_address) addr;
   i.program_data := Bits.of_int ~width:(wsz `Byte) data;
   i.program_pc := Bits.of_int ~width:(wsz `Address) 0;
-  Cyclesim.cycle sim;
-  Cyclesim.cycle sim;
-  Cyclesim.cycle sim;
   Cyclesim.cycle sim
 ;;
 
+let sim_enable_programming (i : _ I.t) = i.program := Bits.of_int ~width:1 1
 let sim_disable_programming (i : _ I.t) = i.program := Bits.of_int ~width:1 0
 
 let sim_program_machine_rom sim (i : _ I.t) =
@@ -43,13 +44,12 @@ let sim_program_rom sim (i : _ I.t) ~rom =
 ;;
 
 let sim_read_addr sim (i : _ I.t) (o : _ O.t) addr =
-  i.program := Bits.of_int ~width:(wsz `Bit) 1;
+  sim_enable_programming i;
   i.program_write_enable := Bits.of_int ~width:(wsz `Bit) 0;
   i.program_address := Bits.of_int ~width:(wsz `Main_address) addr;
   Cyclesim.cycle sim;
   Cyclesim.cycle sim;
-  Cyclesim.cycle sim;
-  Cyclesim.cycle sim;
+  sim_disable_programming i;
   Bits.to_int !(o.read_data)
 ;;
 
@@ -57,6 +57,10 @@ let sim_read_memory_range sim (i : _ I.t) (o : _ O.t) start sz =
   Sequence.range 0 sz
   |> Sequence.map ~f:(fun idx -> sim_read_addr sim i o (start + idx))
   |> Sequence.to_array
+;;
+
+let sim_read_stack sim (i : _ I.t) (o : _ O.t) =
+  sim_read_memory_range sim i o C8.Main_memory.stack_start C8.Main_memory.stack_size
 ;;
 
 let sim_read_framebuffer sim (i : _ I.t) (o : _ O.t) =
@@ -120,7 +124,7 @@ let sim_cycle_not_programming sim (i : _ I.t) (o : _ O.t) ~print =
 ;;
 
 (* Average opcode takes 3 cycles to execute (2 to fetch, one to execute) *)
-let rough_cycles_per_second = 512 * 3
+let hz = 512
 let set_keys_unpressed = List.iter ~f:(fun key -> key := Bits.of_int ~width:1 0)
 
 let assign_keys_randomly ~rand =
@@ -129,7 +133,7 @@ let assign_keys_randomly ~rand =
 
 let test_bytes
   ?(print_on_cycle = false)
-  ~run_for_cycles
+  ~run_for_instructions
   ~print_at_interval
   ~create
   ~rom
@@ -139,35 +143,44 @@ let test_bytes
   let sim = Simulator.create (create ~spec:r_sync) in
   let inputs : _ I.t = Cyclesim.inputs sim in
   let outputs : _ O.t = Cyclesim.outputs sim in
+  let check_for_errors () =
+    if Bits.to_int !(outputs.core.executor_error) = 1
+    then (
+      (* Print registers and framebuffer on error *) printf "ERROR: ";
+      sim_cycle_not_programming sim inputs outputs ~print:true;
+      printf "%s" (frame_buffer_as_string sim inputs outputs);
+      print_s [%message "" ~_:(sim_read_stack sim inputs outputs : int array)];
+      raise_s [%message "Error in ROM"])
+  in
   let rand = Random.State.default in
   (* Write font data to main memory *)
   sim_program_machine_rom sim inputs;
   (* Write the test rom to main memory *)
   sim_program_rom sim inputs ~rom;
   set_keys_unpressed inputs.keys.state;
-  Sequence.range 0 run_for_cycles
-  |> Sequence.iter ~f:(fun cycle ->
-       if (cycle + 1) % print_at_interval = 0
+  Sequence.range 0 run_for_instructions
+  |> Sequence.iter ~f:(fun instruction ->
+       let rec process_whole_instruction () =
+         sim_cycle_not_programming sim inputs outputs ~print:print_on_cycle;
+         check_for_errors ();
+         if Bits.to_int !(outputs.core.executor_done) = 1
+         then ()
+         else process_whole_instruction ()
+       in
+       process_whole_instruction ();
+       if (instruction + 1) % print_at_interval = 0
        then printf "%s\n" (frame_buffer_as_string sim inputs outputs);
-       if cycle % (rough_cycles_per_second / 5) = 0
-       then assign_keys_randomly ~rand inputs.keys.state;
-       sim_cycle_not_programming sim inputs outputs ~print:print_on_cycle;
-       if Bits.to_int !(outputs.core.executor_error) = 1
-       then (
-         (* Print registers and framebuffer on error *) printf "ERROR: ";
-         sim_cycle_not_programming sim inputs outputs ~print:true;
-         printf "%s" (frame_buffer_as_string sim inputs outputs);
-         raise_s [%message "Error in ROM"]))
+       if instruction % (hz / 5) = 0 then assign_keys_randomly ~rand inputs.keys.state)
 ;;
 
 let test_rom
   ?(print_on_cycle = false)
-  ~run_for_cycles
+  ~run_for_instructions
   ~print_at_interval
   ~rom_file
   ~create
   ()
   =
   let rom = String.to_list rom_file |> List.map ~f:Char.to_int in
-  test_bytes ~print_on_cycle ~run_for_cycles ~print_at_interval ~rom ~create ()
+  test_bytes ~print_on_cycle ~run_for_instructions ~print_at_interval ~rom ~create ()
 ;;
