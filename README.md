@@ -70,8 +70,4 @@ Board ram is used for system memory and instructions all assume one cycle to rea
 
 #### Testing
 
-This project is tested visually using `ppx_expect` and the Hardcaml simulator. To start a visual test we initialize an instance of Programmable_cpu_core in sim and then program a test supplied ROM into board RAM by cycling the simulator.
-
-A test harness then cycles the simulator for a specific number of cycles and then uses debug inputs to Programmable_cpu_core to read the framebuffer from board RAM.
-
-The data in the framebuffer is then rendered to a string using the drawille library and printed to stdout so that `ppx_expect` can spot when the framebuffer changes between executions of tests.
+This project is tested visually using `ppx_expect` and the Hardcaml simulator. To start a visual test we initialize an instance of Programmable_cpu_core in sim and then program a test supplied ROM into board RAM by cycling the simulator. A test harness then cycles the simulator for a specific number of cycles and then uses debug inputs to Programmable_cpu_core to read the framebuffer from board RAM. The data in the framebuffer is then rendered to a string using the drawille library and printed to stdout so that `ppx_expect` can spot when the framebuffer changes between executions of tests.
