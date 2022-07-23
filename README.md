@@ -19,7 +19,25 @@
 ⡷⠶⢆⣀⡰⠶⢆⣀⡰⠶⢆⣀⡰⠶⢆⣀⡰⠶⢆⣀⡰⠶⢆⣀⡰⠶⢆⣀⡰⠶⢆⣀⡰⠶⢆⣀⡰⠶⢆⣀⡰⠶⢆⣀⡰⠶⢆⣀⡰⠶⢆⣀⡰⠶⢆⣀⡰⠶⢆⣀⡰⠶⢆⣀⣸
 ⠓⠒⠚⠛⠓⠒⠚⠛⠓⠒⠚⠛⠓⠒⠚⠛⠓⠒⠚⠛⠓⠒⠚⠛⠓⠒⠚⠛⠓⠒⠚⠛⠓⠒⠚⠛⠓⠒⠚⠛⠓⠒⠚⠛⠓⠒⠚⠛⠓⠒⠚⠛⠓⠒⠚⠛⠓⠒⠚⠛⠓⠒⠚⠛⠛ 
 ```
-
+```
+⡏⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢉⣉⣉⣉⣉⡉⢉⣉⣉⣉⣉⡉⢉⣉⣉⣉⣉⣉⡉⢉⣉⣉⣉⣉⡉⢉⣉⣉⣉⣉⡉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢹
+⡇⠰⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠆⠀⢈⡉⠉⠉⠉⠁⢈⡉⠉⠉⢹⡇⢈⡉⠉⠉⠉⢹⡇⢈⡉⠉⠉⠉⠁⢈⡉⠉⠉⠉⠁⠀⠰⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠆⢸
+⡇⠀⠰⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠆⠀⠀⠸⠷⠶⠶⢶⡆⢸⣷⣶⣶⣾⡇⢸⣷⣶⣶⣶⣾⡇⢸⡇⠀⠀⠀⠀⢸⡷⠆⠀⠀⠀⠀⠀⠰⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠆⠀⢸
+⡇⠰⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠆⠀⢰⣶⣶⣶⣾⡇⢸⡏⠉⠉⠉⠁⢸⡏⠉⠉⠉⢹⡇⢸⣷⣶⣶⣶⡆⢸⣷⣶⣶⣶⡆⠀⠰⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠆⢸
+⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠉⠉⠉⠁⠈⠁⠀⠀⠀⠀⠈⠁⠀⠀⠀⠈⠁⠈⠉⠉⠉⠉⠁⠈⠉⠉⠉⠉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸
+⡇⠀⠀⠀⠀⠀⠀⢰⡆⢰⡶⠶⠶⠶⢶⡆⢰⣶⡆⠀⠀⠀⢰⡆⠀⢰⡶⠶⠶⢶⡆⠀⢰⡶⠶⠶⠶⢆⡀⢰⡶⠶⠶⠶⠆⢰⡶⠶⠶⠶⢶⡆⢰⡶⠶⠶⠶⠶⠆⠀⠀⠀⠀⠀⢸
+⡇⠀⠀⠀⠀⠀⢀⣸⡇⢸⣇⡀⠀⠀⢸⡇⠸⢿⡇⠀⠀⢰⡾⠇⢰⣾⡷⠶⠶⠾⢷⡆⢸⣷⡆⠀⠀⢸⡇⢸⣷⡶⠶⠆⠀⢸⡷⢶⡶⠶⠾⠇⠸⠷⠶⠶⢶⣶⡆⠀⠀⠀⠀⠀⢸
+⡇⠀⠀⠀⠀⠀⢸⣿⡇⢸⣿⡇⠀⠀⢸⡇⠀⠸⢷⡆⢰⡾⠇⠀⢸⣿⡇⠀⠀⠀⢸⡇⢸⣿⡇⠀⠀⢸⡇⢸⣿⡇⠀⠀⠀⢸⡇⠸⠷⢶⣶⡆⠀⠀⠀⠀⢸⣿⡇⠀⠀⠀⠀⠀⢸
+⡇⠀⠀⠀⠀⠀⠸⠿⠇⠸⠿⠇⠀⠀⠸⠇⠀⠀⠸⠷⠾⠇⠀⠀⠸⠿⠇⠀⠀⠀⠸⠇⠸⠿⠷⠶⠶⠎⠁⠸⠿⠷⠶⠶⠆⠸⠇⠀⠀⠸⠿⠇⠰⠶⠶⠶⠾⠿⠇⠀⠀⠀⠀⠀⢸
+⡇⠀⢀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⡀⠀⢸
+⡇⠀⢸⡏⠉⠉⠉⠉⠉⠉⠉⠉⢉⡉⠉⠉⠉⠉⢉⡉⢉⡉⠉⠉⠉⠉⢉⡉⠉⠉⠉⢉⡉⠉⠉⠉⢉⣉⣉⣉⣉⣉⡉⠉⠉⠉⠉⠉⠉⠉⠉⠉⢉⡉⠉⠉⠉⢉⣉⡉⠉⢹⡇⠀⢸
+⡇⠀⢸⡇⠀⠀⠀⠀⠀⠀⠀⠀⢈⣱⡆⠰⢆⣰⣎⡁⢸⡇⠀⠀⠀⠀⢸⡇⠀⠀⠀⢸⡇⠀⠀⠀⢸⣏⡉⠉⠉⠉⢱⡆⠀⠀⠀⠀⠀⠀⠀⠀⢸⡇⠀⢀⡀⢸⣿⡇⠀⢸⡇⠀⢸
+⡇⠀⢸⡇⠀⠀⠀⠀⠀⠀⠀⠀⢸⡏⢱⣶⡎⢹⣿⡇⠸⠷⢶⣆⣰⡶⠾⠇⠀⠀⠀⢸⡇⠀⠀⠀⢸⣿⡇⠀⠀⠀⢸⡇⠀⠀⠀⠀⠀⠀⠀⠀⢸⡇⠀⢸⡇⠈⢹⡇⠀⢸⡇⠀⢸
+⡇⠀⢸⡇⠀⠀⠀⠀⠀⠀⠀⠀⠸⠇⠸⠿⠇⠸⠿⠇⠀⠀⠈⠹⠏⠁⠀⠀⠀⠀⠀⠸⠇⠀⠀⠀⠸⠿⠷⠶⠶⠶⠎⠁⠀⠀⠀⠀⠀⠀⠀⠀⠸⠷⠶⠎⠱⠶⠾⠇⠀⢸⡇⠀⢸
+⡇⠀⠸⠷⢶⡶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⠶⢶⡶⠾⠇⠀⢸
+⣇⣀⣀⣀⣸⣇⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣸⣇⣀⣀⣀⣸
+⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛
+```
 ```
 ⡏⢉⡹⠏⠉⢉⡹⠏⠹⢏⡉⠉⠹⢏⡉⠉⠹⢏⡉⠉⠉⢉⡹⠏⠉⢉⡹⠏⠹⢏⡉⠉⠹⢏⡉⠉⠉⢉⡹⠏⠉⢉⡹⠏⠹⢏⡉⠉⠹⢏⡉⠉⠉⢉⡹⠏⠹⢏⡉⠉⠹⢏⡉⠉⢹
 ⡷⠎⠁⢀⡰⠎⠁⢀⡀⠈⠱⢆⡀⠈⠱⢆⡀⠈⠱⢆⡰⠎⠁⢀⡰⠎⠁⢀⡀⠈⠱⢆⡀⠈⠱⢆⡰⠎⠁⢀⡰⠎⠁⢀⡀⠈⠱⢆⡀⠈⠱⢆⡰⠎⠁⢀⡀⠈⠱⢆⡀⠈⠱⢆⣸
@@ -40,8 +58,20 @@
 ⠓⠒⠒⠚⠓⠒⠒⠚⠓⠒⠒⠚⠓⠒⠒⠚⠓⠒⠒⠚⠓⠒⠒⠚⠓⠒⠒⠚⠓⠒⠒⠚⠓⠒⠒⠚⠓⠒⠒⠚⠓⠒⠒⠚⠓⠒⠒⠚⠓⠒⠒⠚⠓⠒⠒⠚⠓⠒⠒⠚⠓⠒⠒⠚⠛ 
 ```
 
-An in-progress implementation of the CHIP-8 virtual machine in Hardcaml with the goal of running simple programs in simulator and on real hardware.
+An implementation of CHIP-8 in Hardcaml that can be executed in simulator or on physical hardware.
+
+#### Architecture
+
+The programmable CPU core is the root circuit. Through inputs to this circuit we can initially program the board-ram to prepare a program for execution and we can also use it to read the frame buffer.
+
+CPU core holds all of the CHIP-8 implementation, calling out to different circuits like draw, bcd, xor_shift for instructions that are more complex.
+
+Board ram is used for system memory and instructions all assume one cycle to read or write which is hardcoded into their implementation.
 
 #### Testing
 
-In addition to more conventional tests, this project includes a simulator which will simulate a real program for a number of cycles and then print the framebuffer to text using drawille. This allows us to visually inspect the output and acts as a very useful smoke test.
+This project is tested visually using `ppx_expect` and the Hardcaml simulator. To start a visual test we initialize an instance of Programmable_cpu_core in sim and then program a test supplied ROM into board RAM by cycling the simulator.
+
+A test harness then cycles the simulator for a specific number of cycles and then uses debug inputs to Programmable_cpu_core to read the framebuffer from board RAM.
+
+The data in the framebuffer is then rendered to a string using the drawille library and printed to stdout so that `ppx_expect` can spot when the framebuffer changes between executions of tests.
